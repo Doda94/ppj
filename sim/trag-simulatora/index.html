@@ -6,7 +6,16 @@
 <title>Trag simulatora leksičkog analizatora — PPJ</title>
 <link rel="stylesheet" href="../../assets/style.css">
 <style>
+  .wrap { max-width: 1220px; }
   .small { font-size: 13px; }
+  .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .popout { display: none; text-decoration: none; }
+  .in-embed .wrap { max-width: 100%; padding: 8px 10px 14px; }
+  .in-embed h1 { font-size: 17px; margin: 0; }
+  .in-embed p.lead, .in-embed .footer { display: none; }
+  .in-embed .popout { display: inline-flex; align-items: center; padding: 4px 10px; font-size: 12.5px; }
+  .in-embed .panel { padding: 10px 12px; margin: 8px 0; }
+  .in-embed h2 { font-size: 15px; margin-bottom: 6px; }
   .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--sans); font-size: 13px; padding: 3px 10px; }
   .ex:hover, .ex.sel { border-color: var(--accent); }
   .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -22,11 +31,12 @@
   .strip .pos { font: 10px var(--mono); color: var(--muted); }
   .strip .c { width: 100%; text-align: center; padding: 3px 5px; border: 1px solid var(--line); border-radius: 5px; font: 15px var(--mono); background: var(--bg); }
   .tblwrap { overflow-x: auto; margin: 8px 0; }
+  table.t th, table.t td { font-size: 13.5px; }
   table.t input.tin {
-    width: 100%; min-width: 54px; padding: 4px 6px; border: 1.5px solid var(--line); border-radius: 5px;
-    background: var(--bg); color: var(--ink); font: 13px var(--mono);
+    width: 100%; min-width: 60px; padding: 5px 7px; border: 1.5px solid var(--line); border-radius: 5px;
+    background: var(--bg); color: var(--ink); font: 14px var(--mono);
   }
-  table.t input.tin.wide { min-width: 115px; }
+  table.t input.tin.wide { min-width: 120px; }
   table.t .ok-cell { border-color: var(--ok) !important; background: color-mix(in srgb, var(--ok) 12%, var(--bg)) !important; }
   table.t .err-cell { border-color: var(--err) !important; background: color-mix(in srgb, var(--err) 12%, var(--bg)) !important; }
   .feedback { border-left: 4px solid var(--accent); background: var(--bg); padding: 9px 12px; border-radius: 6px; margin-top: 8px; font-size: 13.5px; }
@@ -41,7 +51,10 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Trag simulatora (Početak / Završetak / Posljednji / Izraz)</h1>
+  <div class="topbar">
+    <h1>Trag simulatora (Početak / Završetak / Posljednji / Izraz)</h1>
+    <a class="btn popout" href="./" target="_blank" rel="noopener">↗ Otvori veći prikaz</a>
+  </div>
   <p class="lead">Prati algoritam simulatora iz knjige (odjeljci 2.9.6 i 2.9.7, slika 2.21) i sam popuni tablicu kazaljki, aktivnih stanja i izlaznih jedinki korak po korak.</p>
 
   <section class="panel">
@@ -467,6 +480,11 @@
   $('inp').addEventListener('input', rebuild);
   $('simMode').addEventListener('change', function () { renderTransTable(); userInputs = {}; shownSteps = Math.min(2, model.trace.length); renderTrace(); });
 
+  try {
+    if (window.self !== window.top || (typeof location !== 'undefined' && location.search.indexOf('embed') >= 0)) {
+      document.documentElement.classList.add('in-embed');
+    }
+  } catch (e) {}
   ph.querySelectorAll('.ex')[0].click();
 })();
 </script>
