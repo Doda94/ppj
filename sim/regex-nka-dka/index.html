@@ -122,6 +122,13 @@
   'use strict';
   var RX = window.PPJ_Regex;
   var esc = RX.escXml, fmt = RX.fmtSet, vis = RX.vis;
+  // hrvatski oblik broja: 1 znak, 2–4 znaka, ostalo znakova (11–14 → znakova)
+  function znakForm(n) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return 'znak';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'znaka';
+    return 'znakova';
+  }
   function $(id) { return document.getElementById(id); }
   function q(ch) { return '<code>' + esc(vis(ch)) + '</code>'; }
 
@@ -315,7 +322,7 @@
     $('c3txt').innerHTML = text;
 
     var ver;
-    if (k < n) ver = '<span class="badge">još ' + (n - k) + ' znak' + ((n - k) === 1 ? '' : 'ova') + ' za pročitati</span> <span class="muted small">Da niz završi ovdje, bio bi ' + (hasAcc ? '<span class="ok">prihvaćen</span>' : '<span class="err">odbačen</span>') + '.</span>';
+    if (k < n) ver = '<span class="badge">još ' + (n - k) + ' ' + znakForm(n - k) + ' za pročitati</span> <span class="muted small">Da niz završi ovdje, bio bi ' + (hasAcc ? '<span class="ok">prihvaćen</span>' : '<span class="err">odbačen</span>') + '.</span>';
     else {
       var accN = trace.nfa.accepts, accD = trace.dfa.accepts;
       ver = '<span class="badge verdict ' + (accN ? 'ok' : 'err') + '">' + (accN ? 'PRIHVAĆA' : 'ODBACUJE') + '</span> <span class="muted small">' +

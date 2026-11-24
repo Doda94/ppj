@@ -382,7 +382,7 @@
       if (t.error) oh += '<tr class="' + (fresh ? 'hl' : '') + '"><td class="num">' + (k + 1) + '</td><td>' + esc(vis(t.text)) + '</td><td class="err">POGREŠKA</td><td>—</td><td>nedozvoljen znak (poz. ' + t.from + '), izbačen</td></tr>';
       else oh += '<tr class="' + (fresh ? 'hl' : (t.discard ? 'dim' : '')) + '"><td class="num">' + (k + 1) + '</td><td>' + esc(vis(t.text)) + '</td><td>' + (t.discard ? '<i>odbačeno</i>' : esc(t.cls || '?')) + '</td><td>r' + t.rule + '</td><td>poz. ' + t.from + (t.to > t.from ? '–' + t.to : '') + (t.rewind ? ', vraćanje kazaljke' : '') + '</td></tr>';
     }
-    $('out').innerHTML = oh + '</tbody></table>' + (n >= MAXLEN ? '<p class="muted small">Ulaz je skraćen na ' + MAXLEN + ' znakova.</p>' : '');
+    $('out').innerHTML = oh + '</tbody></table>' + (Array.from($('src').value).length > MAXLEN ? '<p class="muted small">Ulaz je skraćen na ' + MAXLEN + ' znakova.</p>' : '');
   }
 
   /* ------------------------------------------------ povezivanje */

@@ -430,7 +430,13 @@
       if (want && accNow && (s.length > 0 || attempt > 100)) return s;
       if (!want) {
         if (!accNow && s.length > 0) return s;
-        if (accNow && attempt > 20) return s + '#';
+        if (accNow && attempt > 20) {
+          // pokušaj produljiti niz znakom koji DKA ne prihvaća; ako takav ne postoji (npr. jezik svih nizova), nema odbačenog niza
+          var tails = ['#', '$', '%', '@', '~', '§'];
+          for (var ti = 0; ti < tails.length; ti++) {
+            if (!runDFA(dfa, s + tails[ti]).accepts) return s + tails[ti];
+          }
+        }
       }
     }
     return null;
