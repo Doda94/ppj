@@ -602,10 +602,10 @@ details.toggle > .toggle-body {
   margin-top: 10px;
   font-size: 14px;
 }
-.verdict.ok { border-left-color: var(--ok); background: var(--ok-bg); }
-.verdict.err { border-left-color: var(--err); background: var(--err-bg); }
-.verdict.warn { border-left-color: var(--warn); background: var(--warn-bg); }
-.verdict.info { border-left-color: var(--info); background: var(--info-bg); }
+.verdict.ok { border-left-color: var(--ok); background: var(--ok-bg); color: var(--ink); }
+.verdict.err { border-left-color: var(--err); background: var(--err-bg); color: var(--ink); }
+.verdict.warn { border-left-color: var(--warn); background: var(--warn-bg); color: var(--ink); }
+.verdict.info { border-left-color: var(--info); background: var(--info-bg); color: var(--ink); }
 
 /* Tablice (Notion Table) */
 table.t {
