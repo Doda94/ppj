@@ -4,60 +4,70 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Regularni izraz → ε-NKA → DKA</title>
+<script src="../../assets/theme.js"></script>
 <link rel="stylesheet" href="../../assets/style.css">
 <style>
-  .small { font-size: 13px; }
-  .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--mono); }
-  .ex:hover { border-color: var(--accent); }
-  .ex:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .ctl { margin: 6px 0 10px; }
-  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line);
-    font: 600 13px var(--sans); color: var(--muted); background: var(--bg); }
-  .badge.ok { color: var(--ok); border-color: var(--ok); }
-  .badge.err { color: var(--err); border-color: var(--err); }
-  .verdict { font-size: 15px; padding: 3px 14px; }
-  .regline { font: 16px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; margin: 0 0 6px; }
-  mark.hl { background: var(--hl); color: var(--hl-ink); border-radius: 3px; padding: 0 2px; }
-  .stepbox { border-left: 4px solid var(--accent); background: var(--bg); padding: 8px 12px; border-radius: 6px;
-    margin: 8px 0 10px; min-height: 3.2em; }
+  .ex {
+    appearance: none;
+    cursor: pointer;
+    border: 1px solid transparent;
+    font-family: var(--mono);
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+  .ex:hover { border-color: var(--accent-raw); }
+  .ex:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .ctl { margin: 8px 0 10px; }
+  .regline { font: 16px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; margin: 0 0 8px; }
+  mark.hl { background: var(--hl); color: var(--hl-ink); border-radius: var(--r-sm); padding: 0 3px; }
+  .stepbox {
+    border: 1px solid var(--line-subtle);
+    border-left: 3px solid var(--accent-raw);
+    background: var(--bg-subtle);
+    padding: 10px 14px;
+    border-radius: var(--r-md);
+    margin: 8px 0 10px;
+    min-height: 3.2em;
+    font-size: 14.5px;
+    line-height: 1.5;
+  }
   .stepbox code, .stepbox b { font-family: var(--mono); }
-  .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 6px; }
-  .gwrap svg { display: block; margin: 0 auto; }
-  .gwrap .empty { padding: 28px 8px; text-align: center; color: var(--muted); }
-  svg .arr { fill: var(--muted); }
-  svg .arr.act { fill: var(--accent); }
-  svg .ring { fill: none; stroke: var(--ink); stroke-width: 1.2; }
+  .gwrap .empty { padding: 28px 8px; text-align: center; color: var(--muted); font-size: 14px; }
   svg .nid { font-size: 12px; }
-  svg .lbl { font-size: 12px; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
-  svg .lbl.act { fill: var(--accent); font-weight: 700; }
-  svg .cap { font-size: 12px; fill: var(--muted); }
-  svg .acc { font-size: 11px; fill: var(--muted); }
-  .tblwrap { overflow-x: auto; margin: 8px 0; }
+  svg .lbl { font-size: 12px; }
+  .tblwrap { margin: 8px 0; }
   table.t td.cur { background: var(--hl); color: var(--hl-ink); font-weight: 700; }
   table.t td.todo { color: var(--muted); }
   table.t td.state { white-space: nowrap; }
-  table.t tr.proc td.state { box-shadow: inset 4px 0 0 var(--accent); }
-  .strip { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; align-items: center; }
-  .strip .c { min-width: 30px; text-align: center; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px;
-    font: 16px var(--mono); background: var(--bg); color: var(--muted); }
-  .strip .c.done { color: var(--ink); background: var(--chip); border-color: transparent; }
-  .strip .c.cur { background: var(--hl); color: var(--hl-ink); border-color: var(--warn); font-weight: 700; }
-  .strip .c.next { border-color: var(--accent); color: var(--ink); border-style: dashed; }
+  table.t tr.proc td.state { box-shadow: inset 3px 0 0 var(--accent-raw); }
+  .strip { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0; align-items: center; }
+  .strip .c {
+    min-width: 30px;
+    text-align: center;
+    padding: 4px 6px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    font: 15px/1.3 var(--mono);
+    background: var(--bg);
+    color: var(--muted);
+  }
+  .strip .c.done { color: var(--chip-ink); background: var(--chip); border-color: transparent; }
+  .strip .c.cur { background: var(--hl); color: var(--hl-ink); border-color: var(--hl-stroke); font-weight: 700; }
+  .strip .c.next { border-color: var(--accent-raw); color: var(--ink); border-style: dashed; }
   .strip .end { color: var(--muted); font: 14px var(--mono); padding: 0 4px; }
-  h3 { font-size: 14px; margin: 14px 0 6px; }
-  details { margin-top: 8px; }
-  details summary { cursor: pointer; color: var(--accent); font-size: 14px; }
-  details ul { margin: 6px 0 0; padding-left: 20px; }
-  details li { margin: 2px 0; }
-  .errmsg { margin: 6px 0 0; min-height: 1.4em; font-size: 14px; }
+  #c3 h3 { margin: 14px 0 6px; overflow-wrap: anywhere; }
+  .syntax-list { margin: 0; padding-left: 18px; }
+  .syntax-list li { margin: 3px 0; }
+  .errmsg { margin: 6px 0 0; min-height: 1.4em; font-size: 13.5px; }
   .stale { opacity: .45; }
-  .legend { color: var(--muted); font-size: 12.5px; margin: 4px 0 0; }
-  @media (max-width: 520px) { .wrap { padding: 14px 12px 40px; } .btn { padding: 7px 10px; } }
+  .legend { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Regularni izraz → ε-NKA → DKA</h1>
+  <div class="topbar">
+    <h1>Regularni izraz → ε-NKA → DKA</h1>
+    <a class="btn popout" href="./" target="_blank" rel="noopener">↗ Otvori veći prikaz</a>
+  </div>
   <p class="lead">Upiši regularni izraz i korak po korak prati Thompsonovu konstrukciju ε-NKA, konstrukciju podskupova koja iz njega daje DKA te čitanje ulaznog niza u oba automata.</p>
 
   <div class="panel">
@@ -65,20 +75,22 @@
     <input type="text" id="re" value="(a|b)*abb" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="reerr">
     <div class="errmsg err" id="reerr" role="alert"></div>
     <div class="row" id="examples" style="gap:6px;margin-top:6px" aria-label="Primjeri"></div>
-    <details>
+    <details class="toggle boxed" style="margin-top:10px">
       <summary>Sintaksa izraza</summary>
-      <ul class="small">
-        <li><code>a|b</code> unija (u knjizi se piše <code>a+b</code>; ovdje je <code>+</code> operator „jedno ili više“), <code>ab</code> ulančavanje, <code>a*</code> Kleeneovo zatvorenje, <code>a+</code> jedno ili više, <code>a?</code> nula ili jedno, <code>( )</code> grupiranje</li>
-        <li><code>[a-z0-9_]</code> klasa znakova, <code>[^0-9]</code> komplement klase, <code>.</code> bilo koji znak osim novog retka, <code>\d</code> <code>\w</code> <code>\s</code> kratice</li>
-        <li><code>\e</code> ili <code>ε</code> prazan niz; prazna alternativa (<code>a|</code>, <code>(|a)</code>, <code>()</code>) također je ε</li>
-        <li><code>\</code> ukida posebno značenje: <code>\*</code> <code>\(</code> <code>\.</code> <code>\|</code> <code>\\</code>; <code>\n</code> <code>\t</code> novi redak i tab. Razmak je običan znak.</li>
-      </ul>
+      <div class="toggle-body">
+        <ul class="small syntax-list">
+          <li><code>a|b</code> unija (u knjizi se piše <code>a+b</code>; ovdje je <code>+</code> operator „jedno ili više“), <code>ab</code> ulančavanje, <code>a*</code> Kleeneovo zatvorenje, <code>a+</code> jedno ili više, <code>a?</code> nula ili jedno, <code>( )</code> grupiranje</li>
+          <li><code>[a-z0-9_]</code> klasa znakova, <code>[^0-9]</code> komplement klase, <code>.</code> bilo koji znak osim novog retka, <code>\d</code> <code>\w</code> <code>\s</code> kratice</li>
+          <li><code>\e</code> ili <code>ε</code> prazan niz; prazna alternativa (<code>a|</code>, <code>(|a)</code>, <code>()</code>) također je ε</li>
+          <li><code>\</code> ukida posebno značenje: <code>\*</code> <code>\(</code> <code>\.</code> <code>\|</code> <code>\\</code>; <code>\n</code> <code>\t</code> novi redak i tab. Razmak je običan znak.</li>
+        </ul>
+      </div>
     </details>
   </div>
 
   <section class="panel" id="c1" aria-labelledby="c1h">
     <h2 id="c1h">1 · ε-NKA — Thompsonova konstrukcija</h2>
-    <div class="row ctl" data-for="c1"></div>
+    <div class="toolbar ctl" data-for="c1"></div>
     <div class="regline" id="c1re"></div>
     <div class="stepbox" id="c1txt" aria-live="polite"></div>
     <div class="gwrap" id="c1g"></div>
@@ -87,7 +99,7 @@
 
   <section class="panel" id="c2" aria-labelledby="c2h">
     <h2 id="c2h">2 · DKA — konstrukcija podskupova</h2>
-    <div class="row ctl" data-for="c2"></div>
+    <div class="toolbar ctl" data-for="c2"></div>
     <div class="stepbox" id="c2txt" aria-live="polite"></div>
     <div class="tblwrap" id="c2tbl"></div>
     <div class="gwrap" id="c2g"></div>
@@ -102,7 +114,7 @@
       <button class="btn" id="sacc" type="button">Prihvaćen primjer</button>
       <button class="btn" id="srej" type="button">Odbačen primjer</button>
     </div>
-    <div class="row ctl" data-for="c3"></div>
+    <div class="toolbar ctl" data-for="c3"></div>
     <div class="strip" id="c3strip" aria-label="Ulazni niz"></div>
     <div class="stepbox" id="c3txt" aria-live="polite"></div>
     <div id="c3ver" style="margin:6px 0"></div>
@@ -325,10 +337,10 @@
     if (k < n) ver = '<span class="badge">još ' + (n - k) + ' ' + znakForm(n - k) + ' za pročitati</span> <span class="muted small">Da niz završi ovdje, bio bi ' + (hasAcc ? '<span class="ok">prihvaćen</span>' : '<span class="err">odbačen</span>') + '.</span>';
     else {
       var accN = trace.nfa.accepts, accD = trace.dfa.accepts;
-      ver = '<span class="badge verdict ' + (accN ? 'ok' : 'err') + '">' + (accN ? 'PRIHVAĆA' : 'ODBACUJE') + '</span> <span class="muted small">' +
+      ver = '<div class="verdict ' + (accN ? 'ok' : 'err') + '"><span class="badge ' + (accN ? 'ok' : 'err') + '">' + (accN ? 'PRIHVAĆA' : 'ODBACUJE') + '</span> <span class="small">' +
         (accN ? 'R sadrži prihvatljivo stanje ' + nfa.accept + '; DKA je u prihvatljivom stanju ' + (dt.q >= 0 ? dName(dt.q) : '') + '.' :
           (R.length ? 'R ne sadrži prihvatljivo stanje ' + nfa.accept + '.' : 'Nema aktivnih stanja — niz nije u jeziku.')) +
-        (accN === accD ? ' ε-NKA i DKA se slažu ✓' : ' <span class="err">ε-NKA i DKA se ne slažu!</span>') + '</span>';
+        (accN === accD ? ' ε-NKA i DKA se slažu ✓' : ' <span class="err">ε-NKA i DKA se ne slažu!</span>') + '</span></div>';
     }
     $('c3ver').innerHTML = ver;
 
