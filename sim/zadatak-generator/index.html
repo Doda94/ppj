@@ -4,49 +4,110 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Generator ispitnih zadataka (Leksička analiza) — PPJ</title>
+<script src="../../assets/theme.js"></script>
 <link rel="stylesheet" href="../../assets/style.css">
 <style>
-  .wrap { max-width: 1220px; }
-  .small { font-size: 13px; }
-  .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-  .popout { display: none; text-decoration: none; }
-  .in-embed .wrap { max-width: 100%; padding: 8px 10px 14px; }
-  .in-embed h1 { font-size: 17px; margin: 0; }
-  .in-embed p.lead, .in-embed .footer { display: none; }
-  .in-embed .popout { display: inline-flex; align-items: center; padding: 4px 10px; font-size: 12.5px; }
-  .in-embed .panel { padding: 10px 12px; margin: 8px 0; }
-  @media (min-width: 620px) {
-    .in-embed .embed-grid { display: grid; grid-template-columns: 230px 1fr; gap: 10px; align-items: start; }
-    .in-embed .embed-grid > .panel { margin: 0; min-width: 0; }
-    .in-embed .scorebar { gap: 4px; margin-top: 8px !important; }
-    .in-embed .badge { font-size: 12px; padding: 2px 8px; }
-    .in-embed .qbox { padding: 10px 12px; margin-top: 0; font-size: 14.5px; }
+  .ctrl-wrap { flex: 1 1 200px; min-width: 0; }
+  .scorebar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+  .qbox {
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 14px;
+    background: var(--bg);
+    margin-top: 4px;
+    font-size: 15px;
   }
-  .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .scorebar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .badge { display: inline-block; padding: 3px 11px; border-radius: 999px; border: 1px solid var(--line);
-    font: 600 13px var(--sans); color: var(--muted); background: var(--bg); }
-  .badge.ok { color: var(--ok); border-color: var(--ok); }
-  .badge.err { color: var(--err); border-color: var(--err); }
-  .qbox { border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--bg); margin-top: 6px; font-size: 15px; }
-  .qbox h3 { margin: 0 0 8px; font-size: 16px; color: var(--accent); }
-  .qcode { font: 14.5px/1.6 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow-x: auto; white-space: pre-wrap; margin: 8px 0; }
-  .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 6px; margin: 8px 0; }
-  .gwrap svg { display: block; margin: 0 auto; }
-  svg .arr { fill: var(--muted); }
-  svg .ring { fill: none; stroke: var(--ink); stroke-width: 1.2; }
-  svg .nid { font-size: 12px; }
-  svg .lbl { font-size: 12px; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
-  .ans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 10px 0; }
-  .fb { border-left: 4px solid var(--line); background: var(--panel); padding: 10px 12px; border-radius: 8px; margin-top: 10px; }
-  .fb.ok { border-left-color: var(--ok); }
-  .fb.err { border-left-color: var(--err); }
-  .tblwrap { overflow-x: auto; margin-top: 8px; }
-  @media (max-width: 520px) { .wrap { padding: 12px 10px 36px; } .btn { padding: 6px 9px; font-size: 13px; } }
+  .qbox h3 { margin: 0 0 10px; font-size: 16px; color: var(--accent); }
+  .qcode {
+    font: 14px/1.6 var(--mono);
+    background: var(--bg-subtle);
+    border: 1px solid var(--line-subtle);
+    border-radius: var(--r-md);
+    padding: 10px 12px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    margin: 8px 0;
+    color: var(--ink);
+  }
+  .ans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+    gap: 10px;
+    margin: 10px 0;
+  }
+  .ans-grid > div {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-width: 0;
+  }
+  .verdict.ok, .verdict.err, .verdict.warn, .verdict.info,
+  .verdict .toggle-body {
+    color: var(--ink);
+  }
+  .opt-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  label.opt-item {
+    display: flex;
+    gap: 9px;
+    align-items: flex-start;
+    padding: 8px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--bg-subtle);
+    color: var(--ink);
+    font: 400 14px/1.45 var(--sans);
+    margin: 0;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  label.opt-item:hover { background: var(--bg-hover); }
+  label.opt-item:has(input:checked) {
+    background: var(--info-bg);
+    border-color: var(--info-border);
+    color: var(--ink);
+  }
+  label.opt-item.is-ok,
+  label.opt-item.is-ok:has(input:checked) {
+    background: var(--ok-bg);
+    border-color: var(--ok);
+    box-shadow: inset 3px 0 0 var(--ok);
+    color: var(--ink);
+  }
+  label.opt-item.is-err,
+  label.opt-item.is-err:has(input:checked) {
+    background: var(--err-bg);
+    border-color: var(--err);
+    box-shadow: inset 3px 0 0 var(--err);
+    color: var(--ink);
+  }
+  label.opt-item input[type=radio] { margin-top: 3px; }
+  .tblwrap table.t { border: 0; }
+  .tblwrap table.t th:first-child, .tblwrap table.t td:first-child { border-left: 0; }
+  .tblwrap table.t th:last-child, .tblwrap table.t td:last-child { border-right: 0; }
+  .tblwrap table.t tr:first-child th, .tblwrap table.t tr:first-child td { border-top: 0; }
+  .tblwrap table.t tr:last-child td { border-bottom: 0; }
+  .verdict-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  @media (min-width: 620px) {
+    html[data-embed="1"] .embed-grid,
+    html.in-embed .embed-grid {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+    html[data-embed="1"] .embed-grid > .panel,
+    html.in-embed .embed-grid > .panel { margin: 0; min-width: 0; }
+    html[data-embed="1"] .scorebar,
+    html.in-embed .scorebar { gap: 4px; margin-top: 8px; }
+    html[data-embed="1"] .badge,
+    html.in-embed .badge { font-size: 12px; padding: 2px 8px; }
+    html[data-embed="1"] .qbox,
+    html.in-embed .qbox { padding: 10px 12px; margin-top: 0; font-size: 14.5px; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap wide">
   <div class="topbar">
     <h1>Generator zadataka — leksička analiza</h1>
     <a class="btn popout" href="./" target="_blank" rel="noopener">↗ Otvori veći prikaz</a>
@@ -56,7 +117,7 @@
   <div class="embed-grid">
   <section class="panel">
     <div class="row" style="gap:8px">
-      <div style="flex:1;min-width:170px">
+      <div class="ctrl-wrap">
         <label for="cat">Tip zadatka</label>
         <select id="cat">
           <option value="mix">Miješano (svi tipovi)</option>
@@ -73,7 +134,7 @@
       </div>
     </div>
 
-    <div class="scorebar" style="margin-top:10px">
+    <div class="scorebar">
       <span class="badge ok" id="sOk">Točno: 0</span>
       <span class="badge err" id="sErr">Netočno: 0</span>
       <span class="badge" id="sStreak">Niz: 0</span>
@@ -83,7 +144,7 @@
 
   <section class="panel" id="taskPanel">
     <div id="taskHost"></div>
-    <div class="row" style="margin-top:12px">
+    <div class="toolbar" style="margin-top:12px;margin-bottom:0">
       <button class="btn primary" type="button" id="bGrade">Ocijeni odgovor</button>
       <button class="btn" type="button" id="bReveal">Prikaži rješenje</button>
     </div>
@@ -222,9 +283,9 @@
     return {
       title: '1 · Grupiranje u leksičke jedinke',
       render: function (host) {
-        var rh = '<table class="t"><thead><tr><th>Oznaka</th><th>Regularni izraz</th></tr></thead><tbody>';
-        rules.forEach(function (r) { rh += '<tr><td><b>' + r.name + '</b></td><td><code>' + esc(r.disp) + '</code></td></tr>'; });
-        rh += '</tbody></table>';
+        var rh = '<div class="tblwrap"><table class="t"><thead><tr><th>Oznaka</th><th>Regularni izraz</th></tr></thead><tbody>';
+        rules.forEach(function (r) { rh += '<tr><td><span class="tag gray">' + r.name + '</span></td><td><code>' + esc(r.disp) + '</code></td></tr>'; });
+        rh += '</tbody></table></div>';
         host.innerHTML =
           '<p>Zadana su pravila leksičkog analizatora navedenim redoslijedom:</p>' + rh +
           '<p style="margin-top:10px">Kako se ulazni niz <code>' + esc(input) + '</code> grupira u leksičke jedinke? (Upiši jedinke odvojene zarezom, npr. <code>abc, =, 5</code>)</p>' +
@@ -397,7 +458,7 @@
       render: function (host) {
         host.innerHTML =
           '<p>Opiši sljedeće leksičko pravilo regularnim izrazom (koristi <code>|</code> za uniju, <code>*</code>, <code>+</code>, <code>?</code>, <code>[0-7]</code>, <code>( )</code>):</p>' +
-          '<div class="qcode">' + sp.desc + '</div>' +
+          '<div class="callout info"><span class="callout-icon" aria-hidden="true">📝</span><div class="callout-body">' + sp.desc + '</div></div>' +
           '<input type="text" id="ansRe" placeholder="upiši regularni izraz…" autocomplete="off" autocapitalize="off" spellcheck="false">';
       },
       grade: function () {
@@ -520,16 +581,22 @@
     return {
       title: '6 · Oporavak od pogreške i kontekst',
       render: function (host) {
-        var h = '<p>' + esc(item.q) + '</p><div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">';
+        var h = '<p>' + esc(item.q) + '</p><div class="opt-list">';
         order.forEach(function (origIdx, pos) {
-          h += '<label style="display:flex;gap:8px;align-items:flex-start;color:var(--ink);font-size:14px;cursor:pointer">' +
-            '<input type="radio" name="errOpt" value="' + pos + '" style="margin-top:4px"> <span>' + esc(item.opts[origIdx]) + '</span></label>';
+          h += '<label class="opt-item">' +
+            '<input type="radio" name="errOpt" value="' + pos + '"> <span>' + esc(item.opts[origIdx]) + '</span></label>';
         });
         host.innerHTML = h + '</div>';
       },
-      grade: function () {
+      grade: function (markWrong) {
         var sel = document.querySelector('input[name="errOpt"]:checked');
         var ok = sel && (+sel.value === correctPos);
+        var opts = document.querySelectorAll('.opt-item');
+        opts.forEach(function (lbl, idx) {
+          lbl.classList.remove('is-ok', 'is-err');
+          if (idx === correctPos) lbl.classList.add('is-ok');
+          else if (markWrong && sel && +sel.value === idx) lbl.classList.add('is-err');
+        });
         return {
           ok: !!ok,
           answerHtml: '<b>Točan odgovor:</b> ' + esc(item.opts[item.ans]) + '<br><span class="small">' + esc(item.expl) + '</span>'
@@ -562,22 +629,30 @@
 
   $('bGrade').onclick = function () {
     if (!currentTask) return;
-    var r = currentTask.grade();
+    var r = currentTask.grade(true);
     updateStats(r.ok);
-    $('fbHost').innerHTML = '<div class="fb ' + (r.ok ? 'ok' : 'err') + '"><b>' + (r.ok ? 'Točno ✓' : 'Netočno ✗') + '</b><br>' + r.answerHtml + '</div>';
+    $('fbHost').innerHTML =
+      '<div class="verdict ' + (r.ok ? 'ok' : 'err') + '" role="status">' +
+        '<div class="verdict-head"><span class="tag ' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? 'Točno ✓' : 'Netočno ✗') + '</span></div>' +
+        '<details class="toggle boxed" open style="margin-top:8px">' +
+          '<summary>Rješenje i objašnjenje</summary>' +
+          '<div class="toggle-body">' + r.answerHtml + '</div>' +
+        '</details>' +
+      '</div>';
   };
 
   $('bReveal').onclick = function () {
     if (!currentTask) return;
-    var r = currentTask.grade();
-    $('fbHost').innerHTML = '<div class="fb"><b>Rješenje:</b><br>' + r.answerHtml + '</div>';
+    var r = currentTask.grade(false);
+    $('fbHost').innerHTML =
+      '<details class="toggle boxed" open style="margin-top:10px">' +
+        '<summary>Prikazano rješenje</summary>' +
+        '<div class="toggle-body">' +
+          '<div class="callout info" style="margin:0"><span class="callout-icon" aria-hidden="true">💡</span><div class="callout-body">' + r.answerHtml + '</div></div>' +
+        '</div>' +
+      '</details>';
   };
 
-  try {
-    if (window.self !== window.top || (typeof location !== 'undefined' && location.search.indexOf('embed') >= 0)) {
-      document.documentElement.classList.add('in-embed');
-    }
-  } catch (e) {}
   newTask();
 })();
 </script>
