@@ -4,29 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Faze prevođenja — PPJ</title>
+<script src="../../assets/theme.js"></script>
 <link rel="stylesheet" href="../../assets/style.css">
 <style>
-  .ctrl { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--line); margin: 0 0 8px; }
-  .ctrl .row { gap: 8px; }
-  .ctrl input[type=range] { flex: 1 1 140px; min-width: 100px; accent-color: var(--accent); }
+  .ctrl input[type=range] { flex: 1 1 140px; min-width: 100px; }
   .phases { display: flex; flex-wrap: wrap; gap: 14px; margin: 4px 0 10px; }
-  .pgroup { display: flex; flex-direction: column; gap: 4px; }
+  .pgroup { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .pgroup .cap { font-size: 12px; color: var(--muted); }
   .pgroup .btns { display: flex; flex-wrap: wrap; gap: 6px; }
   .ph { padding: 5px 10px; font-size: 13px; }
-  .ph .n { display: inline-block; min-width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 9px;
-    background: var(--chip); color: var(--chip-ink); font: 12px var(--mono); margin-right: 5px; }
-  .ph.done { border-color: var(--ok); }
-  .ph.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  .ph.active .n { background: var(--accent-ink); color: var(--accent); }
+  .ph .n {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+    background: var(--chip); color: var(--chip-ink); font: 600 11.5px var(--mono);
+  }
+  .ph.done { border-color: var(--ok-border); background: var(--ok-bg); color: var(--ok); }
+  .ph.done .n { background: var(--bg); color: var(--ok); }
+  .ph.active { background: var(--accent-btn); color: var(--accent-ink); border-color: transparent; box-shadow: var(--shadow-sm); }
+  .ph.active .n { background: var(--bg); color: var(--accent); }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 12px; align-items: start; }
-  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) {
+    .layout, .grid3 { grid-template-columns: 1fr; }
+  }
   .layout .panel { margin: 0 0 12px; }
-  .note { border-left: 4px solid var(--accent); line-height: 1.55; }
-  .note code, .panel code { font: 13px var(--mono); background: var(--chip); color: var(--chip-ink); padding: 0 4px; border-radius: 4px; }
-  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  @media (max-width: 860px) { .grid3 { grid-template-columns: 1fr; } }
-  .grid2 > div, .grid3 > div { min-width: 0; }
   .src .rest { color: var(--muted); }
   .src .ws { color: var(--muted); }
   .src .wsb { display: inline-block; width: .6em; height: .95em; border: 1px dotted var(--muted); vertical-align: -.12em; margin: 0 1px; }
@@ -35,39 +35,39 @@
   .ln.new { color: var(--ok); font-weight: 600; }
   .ln.sep { border-top: 1px dashed var(--line); }
   .blk { float: right; font: 11px var(--mono); color: var(--muted); margin-left: 8px; }
-  .treebox { overflow: auto; max-height: 560px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .treebox { overflow: auto; max-height: 560px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); }
   .treebox svg { display: block; }
   .treebox.fit svg { width: 100%; height: auto; }
   svg .node.term { fill: var(--chip); }
   svg .node.term.active { fill: var(--hl); }
   svg .node.hidden { opacity: .35; }
   .stackcol { display: flex; flex-direction: column; gap: 4px; min-height: 60px; }
-  .sbox { border: 1px solid var(--ink); border-radius: 4px; padding: 3px 8px; font: 13px var(--mono); background: var(--panel); text-align: center; }
+  .sbox { border: 1px solid var(--line); border-radius: var(--r-md); padding: 4px 8px; font: 13px var(--mono); background: var(--panel); text-align: center; box-shadow: var(--shadow-sm); }
   .sbox small { display: block; color: var(--muted); font-size: 11px; }
-  .sbox.top { background: var(--hl); color: var(--hl-ink); }
+  .sbox.top { background: var(--hl); color: var(--hl-ink); border-color: var(--hl-stroke); }
   .sbox.top small { color: var(--hl-ink); }
-  .qitem { font: 13px var(--mono); padding: 1px 6px; border-bottom: 1px dotted var(--line); }
-  .qitem.cur { background: var(--hl); color: var(--hl-ink); }
+  .qitem { font: 13px var(--mono); padding: 3px 6px; border-bottom: 1px dotted var(--line); border-radius: var(--r-sm); }
+  .qitem.cur { background: var(--hl); color: var(--hl-ink); font-weight: 600; }
   .qitem.cur::before { content: "▶ "; }
-  .small { font-size: 12.5px; }
   td.act { font: 12.5px var(--mono); }
-  .opt { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin: 8px 0 0; font-size: 13px; }
-  .opt label { display: inline-flex; gap: 6px; align-items: center; margin: 0; color: var(--ink); }
+  .opt { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin: 10px 0 0; font-size: 13.5px; }
+  .opt .opt-sel { display: inline-flex; gap: 6px; align-items: center; margin: 0; color: var(--ink); font-size: 13.5px; font-weight: 400; }
   .opt select { width: auto; font: 13px var(--sans); }
   .kv td:first-child { color: var(--muted); }
-  details { margin-top: 8px; }
-  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
   .msgs li { margin: 2px 0; font: 13px var(--mono); }
   .msgs ul { padding-left: 18px; margin: 0; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Faze prevođenja korak po korak</h1>
+<div class="wrap wide">
+  <div class="topbar">
+    <h1>Faze prevođenja korak po korak</h1>
+    <a class="btn popout" href="./" target="_blank" rel="noopener">↗ Otvori veći prikaz</a>
+  </div>
   <p class="lead">Pratite primjer funkcije <code>IzračunajCijenu</code> iz knjige (odjeljak 1.1) kroz sve faze jezičnog procesora: od leksičke analize i sintaksnog stabla do međukoda, optimiranja i strojnog programa. Klikom na traku faza skočite na pojedinu fazu.</p>
 
   <div class="ctrl">
-    <div class="row">
+    <div class="toolbar" style="margin-bottom:0">
       <button class="btn" id="bReset" type="button">⟲ Reset</button>
       <button class="btn" id="bBack" type="button">◀ Natrag</button>
       <button class="btn primary" id="bNext" type="button">Korak ▶</button>
@@ -79,7 +79,7 @@
 
   <div class="phases" id="phases" role="tablist" aria-label="Faze prevođenja"></div>
 
-  <div class="panel note" id="note" aria-live="polite"></div>
+  <div class="callout info" id="note" aria-live="polite"></div>
 
   <div class="layout">
     <div id="view"></div>
@@ -693,16 +693,16 @@ function renderView(v, ui) {
     case 'tree': {
       const fit = ui.fit ? ' fit' : '';
       return `<div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Sintaksno stablo (slika 1.4)</h2>` +
-        `<label style="margin:0"><input type="checkbox" id="fitTree"${ui.fit ? ' checked' : ''}> prilagodi širini</label></div>` +
+        `<label class="check-label"><input type="checkbox" id="fitTree"${ui.fit ? ' checked' : ''}> prilagodi širini</label></div>` +
         `<div class="treebox${fit}" id="treebox" style="margin-top:8px">${treeSVG(v.lay, v.upto, ui)}</div>` +
-        `<details><summary>Produkcije korištene u ovom stablu (rekonstruirano sa slike 1.4)</summary><pre class="code small">` + esc(
+        `<details class="toggle boxed"><summary>Produkcije korištene u ovom stablu (rekonstruirano sa slike 1.4)</summary><div class="toggle-body"><pre class="code small">` + esc(
 `<Potprogram>    → (IDN) (SO,() (SO,)) <BlokNaredbi>
 <BlokNaredbi>   → (SO,{) <SlijedNaredbi> (SO,})
 <SlijedNaredbi> → <Naredba> <Naredba>
 <Naredba>       → (KR,ako) (SO,() <Izraz> (SO,)) <Naredba> (KR,inače) <Naredba>
 <Naredba>       → (IDN) (SO,=) <Desno> (SO,;)
 <Izraz>         → (IDN) (SO,>) (INT)
-<Desno>         → (IDN) | (INT)`) + `</pre></details></div>`;
+<Desno>         → (IDN) | (INT)`) + `</pre></div></details></div>`;
     }
     case 'stack': {
       const s = v.st;
@@ -718,11 +718,11 @@ function renderView(v, ui) {
         return `<tr class="${s.rule === r ? 'hl' : ''}"><td>${a[0]}</td><td>${a[1]}</td><td>${r}</td><td class="act">${a[2]}</td></tr>`;
       }).join('');
       const opts = Object.keys(v.exs).map(k => `<option value="${k}"${k === v.exKey ? ' selected' : ''}>${esc(v.exs[k].label)}</option>`).join('');
-      return `<div class="panel"><div class="grid2" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">` +
+      return `<div class="panel"><div class="grid2">` +
         `<div><h2>Stog (vrh gore)</h2><div class="stackcol">${stack || '<span class="muted">prazan stog</span>'}</div></div>` +
         `<div><h2>Niz leksičkih jedinki</h2><div>${queue}</div></div></div>` +
-        `<div class="opt"><label>Primjer: <select id="stackEx">${opts}</select></label><label><input type="checkbox" id="withSem"${v.withSem ? ' checked' : ''}> semantika (tablica 1.2)</label></div></div>` +
-        `<div class="panel"><h2>Tablica akcija (${v.withSem ? 'tablica 1.2' : 'tablica 1.1'})</h2><div style="overflow:auto"><table class="t"><tr><th>Leksička jedinka</th><th>Vrh stoga</th><th>Broj</th><th>Akcija</th></tr>${rows}</table></div></div>`;
+        `<div class="opt"><label class="opt-sel">Primjer: <select id="stackEx">${opts}</select></label><label class="check-label"><input type="checkbox" id="withSem"${v.withSem ? ' checked' : ''}> semantika (tablica 1.2)</label></div></div>` +
+        `<div class="panel"><h2>Tablica akcija (${v.withSem ? 'tablica 1.2' : 'tablica 1.1'})</h2><div class="tblwrap"><table class="t"><tr><th>Leksička jedinka</th><th>Vrh stoga</th><th>Broj</th><th>Akcija</th></tr>${rows}</table></div></div>`;
     }
     case 'sem': {
       const s = v.s;
@@ -730,9 +730,9 @@ function renderView(v, ui) {
       let params = '';
       if (s.left || s.right) {
         const z = (n, o) => o ? `<tr><td>${n}</td><td>${esc(o.klasa)}</td><td>${esc(o.ime)}</td><td>${esc(o.tip)}</td></tr>` : '';
-        params = `<table class="t" style="margin-top:8px"><tr><th>Parametar</th><th>.Klasa</th><th>.Ime</th><th>.Tip</th></tr>${z('ZnakLijevo', s.left)}${z('Znak', s.right)}</table>`;
+        params = `<div class="tblwrap" style="margin-top:8px"><table class="t"><tr><th>Parametar</th><th>.Klasa</th><th>.Ime</th><th>.Tip</th></tr>${z('ZnakLijevo', s.left)}${z('Znak', s.right)}</table></div>`;
       }
-      const opt = v.intro ? `<div class="opt"><label><input type="checkbox" id="optKol"${v.kolicina ? ' checked' : ''}> pretpostavi da je <code>Količina</code> deklarirana (tip INTBroj)</label></div>` : '';
+      const opt = v.intro ? `<div class="opt"><label class="check-label"><input type="checkbox" id="optKol"${v.kolicina ? ' checked' : ''}> pretpostavi da je <code>Količina</code> deklarirana (tip INTBroj)</label></div>` : '';
       return `<div class="panel"><h2>Potprogram ProvjeriTipove() (slika 1.9)</h2>${listing(PT_CODE, flags)}${params}${opt}</div>`;
     }
     case 'ic': {
@@ -742,7 +742,7 @@ function renderView(v, ui) {
         return `<tr class="${cur ? 'hl' : ''}"><td><pre style="margin:0;font:13px/1.5 var(--mono)">${esc(r.src.join('\n'))}</pre></td>` +
           `<td><pre style="margin:0;font:13px/1.5 var(--mono);${vis ? '' : 'visibility:hidden'}">${esc(r.ic.join('\n')) || ' '}</pre></td></tr>`;
       }).join('');
-      return `<div class="panel"><h2>Tablica 1.3: troadresne naredbe međukoda srednje razine</h2><div style="overflow:auto"><table class="t"><tr><th>Naredbe izvornog programa</th><th>Troadresni međukod</th></tr>${rows}</table></div></div>`;
+      return `<div class="panel"><h2>Tablica 1.3: troadresne naredbe međukoda srednje razine</h2><div class="tblwrap"><table class="t"><tr><th>Naredbe izvornog programa</th><th>Troadresni međukod</th></tr>${rows}</table></div></div>`;
     }
     case 'opt': {
       const col = (blocks, mode, vis) => {
@@ -776,7 +776,7 @@ function renderView(v, ui) {
         return `<tr class="${k === v.shown - 1 ? 'hl' : ''}"><td><pre style="margin:0;font:13px/1.5 var(--mono)">${esc(r.ic)}</pre></td>` +
           `<td><pre style="margin:0;font:13px/1.5 var(--mono);${vis ? '' : 'visibility:hidden'}">${esc(r.asm.join('\n'))}</pre></td></tr>`;
       }).join('');
-      return `<div class="panel"><h2>Tablica 1.5: mnemonički program za Motorolu MC 6800</h2><div style="overflow:auto"><table class="t"><tr><th>Optimirani troadresni međukod</th><th>Mnemonički program</th></tr>${rows}</table></div></div>`;
+      return `<div class="panel"><h2>Tablica 1.5: mnemonički program za Motorolu MC 6800</h2><div class="tblwrap"><table class="t"><tr><th>Optimirani troadresni međukod</th><th>Mnemonički program</th></tr>${rows}</table></div></div>`;
     }
     case 'win': {
       if (v.pass === null) return `<div class="panel"><h2>Mnemonički program prije optimiranja (tablica 1.5)</h2>${listing(v.base)}</div>`;
@@ -811,15 +811,17 @@ function symHTML(step, sems) {
     return `<tr class="${k === hlId || x.name === focus ? 'hl' : ''}"><td>${k + 1}</td><td>${esc(x.name)}</td><td>${tip}</td></tr>`;
   }).join('') || '<tr><td colspan="3" class="muted">—</td></tr>';
   const coRows = sym.consts.map((x, k) => `<tr class="${k === hlCo ? 'hl' : ''}"><td>${k + 1}</td><td>${esc(x.v)}</td><td>${x.tip}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">—</td></tr>';
-  return `<h2>Tablica znakova</h2><div style="overflow:auto"><table class="t"><tr><th>#</th><th>Identifikator</th><th>Tip</th></tr>${idRows}</table>` +
-    `<table class="t" style="margin-top:8px"><tr><th>#</th><th>Konstanta</th><th>Tip</th></tr>${coRows}</table></div>` +
+  return `<h2>Tablica znakova</h2><div class="tblwrap"><table class="t"><tr><th>#</th><th>Identifikator</th><th>Tip</th></tr>${idRows}</table></div>` +
+    `<div class="tblwrap" style="margin-top:8px"><table class="t"><tr><th>#</th><th>Konstanta</th><th>Tip</th></tr>${coRows}</table></div>` +
     `<p class="muted small" style="margin:8px 0 0">Zapis po jedinstvenom identifikatoru/konstanti. Tip konstante određuje leksička, a tip varijable semantička analiza.</p>`;
 }
 function errHTML(step, sems) {
   let errs = [];
   if (step.ph === 4) errs = step.view.s.errs;
   else if (step.ph >= 5) errs = sems[sems.length - 1].errs;
-  return `<h2>Nadziranje pogrešaka</h2>` + (errs.length ? `<ul class="err">${errs.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : '<p class="ok" style="margin:0">Nema pogrešaka.</p>');
+  return `<h2>Nadziranje pogrešaka</h2>` + (errs.length
+    ? `<div class="callout err" style="margin:0"><span class="callout-icon" aria-hidden="true">⛔</span><div class="callout-body"><ul class="err">${errs.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div></div>`
+    : `<div class="callout ok" style="margin:0"><span class="callout-icon" aria-hidden="true">✅</span><div class="callout-body">Nema pogrešaka.</div></div>`);
 }
 
 /* ================= UI ================= */
@@ -844,7 +846,7 @@ if (typeof document !== 'undefined') (function () {
   }
   function render() {
     const s = steps[i];
-    $('note').innerHTML = `<div class="muted small" style="margin-bottom:4px">Faza ${s.ph}: ${PH[s.ph]}</div>` + s.note;
+    $('note').innerHTML = `<span class="callout-icon" aria-hidden="true">💡</span><div class="callout-body"><div class="muted small" style="margin-bottom:4px">Faza ${s.ph}: ${PH[s.ph]}</div>${s.note}</div>`;
     $('view').innerHTML = renderView(s.view, ui);
     $('symp').innerHTML = symHTML(s, sems);
     $('errp').innerHTML = errHTML(s, sems);
