@@ -127,7 +127,7 @@
       <div class="row" style="gap:8px">
         <div style="flex:1;min-width:170px">
           <label for="trInput" id="trTitle">Oznaka prijelaza</label>
-          <input type="text" id="trInput" placeholder="npr. a ili a,b ili 0-7 ili ε" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <input type="text" id="trInput" placeholder="npr. c ili x,y ili 1-3 ili ε" autocomplete="off" autocapitalize="off" spellcheck="false">
         </div>
         <button class="btn primary" type="button" id="trSave">Spremi</button>
         <button class="btn" type="button" id="trCancel">Odustani</button>
@@ -406,7 +406,7 @@
         $('trInput').value = state.transitions[existingIdx].label;
         $('trTitle').textContent = 'Uredi postojeći prijelaz ' + a.label + ' → ' + b.label;
       } else {
-        $('trInput').value = alphabetChars()[0] || 'a';
+        $('trInput').value = '';
       }
     }
     updateAlphabetChips();

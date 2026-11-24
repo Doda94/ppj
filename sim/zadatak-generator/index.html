@@ -308,13 +308,17 @@
   function genSimTask() {
     var words = shuffle(['iva', 'ana', 'marko', 'luka', 'pero', 'dora', 'tina']).slice(0, 2);
     var r1 = words[0], r2 = words[1];
-    var tail = pick(['xyz', 'qwe', 'mno']);
-    var input = r1 + tail + r2;
-    var k = r1.length; // točno na kraju r1!
+    var input = r1 + r2 + 'x';
     var lx = RX.buildLexer([{ src: r1, cls: 'R1' }, { src: r2, cls: 'R2' }]);
-    var lt = RX.lexTrace(lx, input, 30);
-    // Pronađi read korak gdje je zavrsetak === k
-    var targetStep = lt.steps.filter(function (s) { return s.kind === 'read' && s.zavrsetak === k; })[0];
+    var lt = RX.lexTrace(lx, input, 40);
+    var candidates = [
+      1, // prvi znak r1 -> Izraz = 0
+      r1.length, // kraj r1 -> Izraz = 1
+      r1.length + r2.length // kraj r2 -> Pocetak = r1.length+1, Izraz = 2
+    ];
+    var k = pick(candidates);
+    var matches = lt.steps.filter(function (s) { return s.kind === 'read' && s.zavrsetak === k; });
+    var targetStep = matches[matches.length - 1];
 
     return {
       title: '3 · Kazaljke simulatora (Početak, Završetak, Posljednji, Izraz)',
@@ -322,27 +326,28 @@
         host.innerHTML =
           '<p>Simulator prepoznaje pravila <code>r1 = ' + esc(r1) + '</code> i <code>r2 = ' + esc(r2) + '</code>. ' +
           'Na ulazu je niz <code>' + esc(input) + '</code> (indeksiranje počinje od <b>1</b>).</p>' +
-          '<p>Upiši vrijednosti kazaljki <b>odmah nakon čitanja znaka <code>' + esc(input[k - 1]) + '</code> na indeksu ' + k + '</b> (u tom koraku prihvaća pravilo r1):</p>' +
+          '<p>Upiši vrijednosti kazaljki <b>odmah nakon čitanja znaka <code>' + esc(input[k - 1]) + '</code> na indeksu ' + k + '</b>:</p>' +
           '<div class="ans-grid">' +
           '<div><label for="sP">Početak</label><input type="text" id="sP" autocomplete="off"></div>' +
           '<div><label for="sZ">Završetak</label><input type="text" id="sZ" autocomplete="off"></div>' +
           '<div><label for="sL">Posljednji</label><input type="text" id="sL" autocomplete="off"></div>' +
-          '<div><label for="sI">Izraz (broj pravila, npr. 1)</label><input type="text" id="sI" autocomplete="off"></div>' +
+          '<div><label for="sI">Izraz (0 ili rK)</label><input type="text" id="sI" autocomplete="off"></div>' +
           '</div>';
       },
       grade: function () {
         var p = +$('sP').value.trim(), z = +$('sZ').value.trim(), l = +$('sL').value.trim();
         var iRaw = $('sI').value.trim().toLowerCase().replace(/^r/, '');
-        var iv = +iRaw;
+        var iv = iRaw === '' ? NaN : +iRaw;
         var ok = p === targetStep.pocetak && z === targetStep.zavrsetak && l === targetStep.posljednji && iv === targetStep.izraz;
+        var why = targetStep.izraz === 0
+          ? 'Do indeksa ' + k + ' nijedno pravilo još nije prihvatilo prefiks, pa su <code>Posljednji = 0</code> i <code>Izraz = 0</code>.'
+          : 'Na indeksu ' + k + ' prihvaća pravilo <code>r' + targetStep.izraz + '</code>, pa se <code>Posljednji</code> postavlja na ' + k + ', a <code>Izraz = ' + targetStep.izraz + '</code>.';
         return {
           ok: ok,
           answerHtml:
             '<b>Početak = ' + targetStep.pocetak + ', Završetak = ' + targetStep.zavrsetak +
-            ', Posljednji = ' + targetStep.posljednji + ', Izraz = ' + targetStep.izraz + ' (r' + targetStep.izraz + ')</b>.<br>' +
-            '<span class="small">Objašnjenje: nakon znaka <code>' + esc(input[k - 1]) + '</code> na indeksu ' + k +
-            ', pravilo r1 prihvaća prefiks <code>' + esc(r1) + '</code>, pa se <code>Posljednji</code> postavlja na ' + k + ', a <code>Izraz = 1</code>. ' +
-            '<code>Početak</code> ostaje 1 sve dok čitanje ne stane na sljedećem znaku (<code>' + esc(input[k]) + '</code>) i ne izda se jedinka.</span>'
+            ', Posljednji = ' + targetStep.posljednji + ', Izraz = ' + targetStep.izraz + (targetStep.izraz ? ' (r' + targetStep.izraz + ')' : '') + '</b>.<br>' +
+            '<span class="small">' + why + '</span>'
         };
       }
     };
@@ -380,7 +385,7 @@
       },
       function () {
         return {
-          desc: 'Nizovi nad <code>{a, b}</code> koji imaju najmanje jedan <code>a</code> i nakon svakog <code>a</code> može biti bilo koliko <code>b</code> (ili jednostavnije: počinju s <code>b*a</code> i završavaju bilo čime nad <code>{a,b}</code>).',
+          desc: 'Svi nizovi nad <code>{a, b}</code> koji sadrže barem jedan znak <code>a</code>.',
           target: '(a|b)*a(a|b)*'
         };
       }
@@ -393,7 +398,7 @@
         host.innerHTML =
           '<p>Opiši sljedeće leksičko pravilo regularnim izrazom (koristi <code>|</code> za uniju, <code>*</code>, <code>+</code>, <code>?</code>, <code>[0-7]</code>, <code>( )</code>):</p>' +
           '<div class="qcode">' + sp.desc + '</div>' +
-          '<input type="text" id="ansRe" placeholder="npr. (a|b)(a|b|c)*" autocomplete="off" autocapitalize="off" spellcheck="false">';
+          '<input type="text" id="ansRe" placeholder="upiši regularni izraz…" autocomplete="off" autocapitalize="off" spellcheck="false">';
       },
       grade: function () {
         var got = ($('ansRe') ? $('ansRe').value : '').trim();
@@ -444,7 +449,7 @@
           '<p>' + (askStep
             ? 'Ako je trenutni skup aktivnih stanja <code>R = ' + esc(fmt(R0)) + '</code>, koji će skup stanja <code>R′ = ε-okruženje(δ(R, ' + esc(ch) + '))</code> biti nakon čitanja znaka <code>' + esc(ch) + '</code>?'
             : 'Koliko iznosi početni skup stanja <code>R = ε-okruženje({' + th.nfa.start + '})</code>?') + '</p>' +
-          '<input type="text" id="ansEps" placeholder="npr. 0, 1, 2 (ili ∅)" autocomplete="off" spellcheck="false">';
+          '<input type="text" id="ansEps" placeholder="brojevi stanja ili ∅" autocomplete="off" spellcheck="false">';
       },
       grade: function () {
         var s = ($('ansEps') ? $('ansEps').value : '').replace(/[{}]/g, '').trim();

@@ -94,7 +94,7 @@
   <section class="panel">
     <h2>2 · Popuni tablicu koraka simulatora</h2>
     <p class="small muted" style="margin:0 0 8px">
-      Indeksi znakova počinju od <b>1</b>. Ako nijedno pravilo još ne prihvaća prefiks, <code>Izraz = 0</code> i <code>Posljednji = 0</code> (ili <code>—</code>). Za pravilo upiši npr. <code>r1</code> ili <code>1</code>.
+      Indeksi znakova počinju od <b>1</b>. Ako nijedno pravilo još ne prihvaća prefiks, <code>Izraz = 0</code> i <code>Posljednji = 0</code> (ili <code>—</code>). Za pravilo upiši oznaku <code>rK</code> ili broj <code>K</code>.
     </p>
     <div class="row" style="gap:6px;margin-bottom:8px">
       <button class="btn primary" type="button" id="bCheckStep">Provjeri trenutni korak</button>
@@ -108,9 +108,9 @@
     <div class="feedback" id="fb">Popuni redak <b>Korak 1</b> pa klikni „Provjeri trenutni korak“.</div>
 
     <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
-      <label for="outGuess">3 · Izlazne jedinke (upiši niz oznaka pravila odvojen zarezom ili razmakom, npr. <code>r2, r3, r1</code>)</label>
+      <label for="outGuess">3 · Izlazne jedinke (upiši niz oznaka pravila odvojen zarezom ili razmakom)</label>
       <div class="row" style="gap:8px">
-        <input type="text" id="outGuess" placeholder="npr. r2, r3, r1" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:170px">
+        <input type="text" id="outGuess" placeholder="oznaka1, oznaka2, …" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:170px">
         <button class="btn primary" type="button" id="bCheckOut">Provjeri izlaz</button>
       </div>
       <div id="outFb" class="small" style="margin-top:6px"></div>
@@ -339,7 +339,7 @@
         '<td><input class="tin' + clsFor('z') + '" data-k="' + k + '" data-f="z" value="' + esc(u.z || '') + '" autocomplete="off"></td>' +
         '<td><input class="tin' + clsFor('l') + '" data-k="' + k + '" data-f="l" value="' + esc(u.l || '') + '" autocomplete="off"></td>' +
         '<td><input class="tin' + clsFor('i') + '" data-k="' + k + '" data-f="i" value="' + esc(u.i || '') + '" autocomplete="off"></td>' +
-        '<td><input class="tin' + (mode === 'nfa' ? ' wide' : '') + clsFor('st') + '" data-k="' + k + '" data-f="st" value="' + esc(u.st || '') + '" placeholder="' + (mode === 'dfa' ? 'D? / ∅' : '0, 1...') + '" autocomplete="off"></td>' +
+        '<td><input class="tin' + (mode === 'nfa' ? ' wide' : '') + clsFor('st') + '" data-k="' + k + '" data-f="st" value="' + esc(u.st || '') + '" placeholder="' + (mode === 'dfa' ? 'D? / ∅' : 'skup stanja') + '" autocomplete="off"></td>' +
         '</tr>';
     }
     h += '</tbody></table>';
