@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PPJ — Dizajn sustav (Styleguide)</title>
+<script src="../assets/theme.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar embed-hide" style="margin-bottom:10px">
+    <a class="btn ghost sm" href="../index.html">← Početna</a>
+    <div class="row" style="gap:6px">
+      <span class="small muted">Tema:</span>
+      <button class="btn sm" type="button" data-set-theme="auto">Sustav</button>
+      <button class="btn sm" type="button" data-set-theme="light">☀️ Svijetla</button>
+      <button class="btn sm" type="button" data-set-theme="dark">🌙 Tamna</button>
+      <a class="btn sm ghost" href="?embed=1" target="_blank" rel="noopener">Embed prikaz ↗</a>
+    </div>
+  </div>
+
+  <div class="topbar">
+    <div>
+      <div class="page-icon" aria-hidden="true">🎨</div>
+      <h1>PPJ Dizajn sustav</h1>
+    </div>
+    <a class="btn popout" href="./" target="_blank" rel="noopener">↗ Otvori veći prikaz</a>
+  </div>
+  <p class="lead">Galerija komponenti i tokena nadahnutih Notion Kitom za sve PPJ simulacije. Radi bez vanjskih ovisnosti u svijetloj, tamnoj i ugrađenoj (<code>?embed=1</code>) temi.</p>
+
+  <div class="callout info">
+    <span class="callout-icon" aria-hidden="true">💡</span>
+    <div class="callout-body">
+      <strong>Upravljanje temom i embedom:</strong> dodaj <code>?theme=light</code> ili <code>?theme=dark</code> za ručni odabir teme te <code>?embed=1</code> za kompaktni Notion iframe prikaz.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>1. Tipografija i kod</h2>
+    <h1>H1 — Naslov stranice</h1>
+    <h2>H2 — Naslov sekcije</h2>
+    <h3>H3 — Podnaslov bloka</h3>
+    <p>Obični odlomak teksta veličine 16 px s proredom 1.5. Primjer inline koda: <code>(a|b)*abb</code> i tipkovničke kratice <kbd>Ctrl</kbd> + <kbd>Enter</kbd>, te istaknuti izraz <span class="hl">trenutno stanje</span>.</p>
+    <pre class="code">%%
+[a-zA-Z_][a-zA-Z0-9_]*   { return IDN; }
+[0-9]+                   { return BROJ; }</pre>
+  </div>
+
+  <div class="panel">
+    <h2>2. Gumbi i alatne trake</h2>
+    <div class="toolbar">
+      <button class="btn" type="button">Zadani gumb</button>
+      <button class="btn primary" type="button">Primarni (Korak ▶)</button>
+      <button class="btn ghost" type="button">Ghost</button>
+      <button class="btn danger" type="button">Obriši</button>
+      <button class="btn active" type="button" aria-pressed="true">Aktivan</button>
+      <button class="btn" type="button" disabled>Onemogućen</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button class="btn sm" type="button" data-tooltip="Vrati na početak">⏮ Reset</button>
+      <button class="btn sm" type="button">◀ Natrag</button>
+      <button class="btn sm primary" type="button">Korak ▶</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>3. Unosi, odabiri i kvačice</h2>
+    <div class="grid2">
+      <div>
+        <label for="sg-re">Regularni izraz</label>
+        <input id="sg-re" type="text" value="(a|b)*abb" placeholder="Unesite regex...">
+      </div>
+      <div>
+        <label for="sg-sel">Način rada</label>
+        <select id="sg-sel">
+          <option value="dka">DKA (deterministički)</option>
+          <option value="nka">ε-NKA (nedeterministički)</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:10px">
+      <label for="sg-ta">Izvorni kod / pravila</label>
+      <textarea id="sg-ta" style="min-height:74px">int zbroj(int a, int b) {
+  return a + b;
+}</textarea>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="check-label"><input type="checkbox" checked> Prikaži ε-prijelaze</label>
+      <label class="check-label"><input type="checkbox"> Automatski pomak</label>
+      <label class="check-label"><input type="radio" name="sg-r" checked> DKA</label>
+      <label class="check-label"><input type="radio" name="sg-r"> ε-NKA</label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>4. Callout blokovi i toggle</h2>
+    <div class="callout info">
+      <span class="callout-icon" aria-hidden="true">ℹ️</span>
+      <div class="callout-body"><strong>Informacija:</strong> Konstrukcija podskupova pretvara ε-NKA u ekvivalentni DKA.</div>
+    </div>
+    <div class="callout ok">
+      <span class="callout-icon" aria-hidden="true">✅</span>
+      <div class="callout-body"><strong>Točno:</strong> Nacrtani automat prihvaća točno isti jezik kao zadani izraz.</div>
+    </div>
+    <div class="callout warn">
+      <span class="callout-icon" aria-hidden="true">⚠️</span>
+      <div class="callout-body"><strong>Upozorenje:</strong> Prazan niz <code>ε</code> mora biti prihvaćen u početnom stanju.</div>
+    </div>
+    <div class="callout err">
+      <span class="callout-icon" aria-hidden="true">⛔</span>
+      <div class="callout-body"><strong>Greška:</strong> Neočekivana zatvorena zagrada na poziciji 4.</div>
+    </div>
+
+    <details class="toggle boxed">
+      <summary>Prikaži točno rješenje i postupak</summary>
+      <div class="toggle-body">
+        <p class="small">Početno stanje DKA je <code>ε-okruženje({0}) = {0, 1, 2, 4, 7}</code>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="panel">
+    <h2>5. Tagovi, chipovi, statusi i koraci</h2>
+    <div>
+      <span class="tag gray">gray</span>
+      <span class="tag brown">brown</span>
+      <span class="tag orange">orange</span>
+      <span class="tag yellow">yellow</span>
+      <span class="tag green">green</span>
+      <span class="tag blue">blue</span>
+      <span class="tag purple">purple</span>
+      <span class="tag pink">pink</span>
+      <span class="tag red">red</span>
+      <span class="chip">q0</span>
+      <span class="chip hl">q3 (aktivno)</span>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <span class="badge ok">PRIHVAĆA ✓</span>
+      <span class="badge err">ODBACUJE ✗</span>
+      <span class="badge warn">KORAK 3/6</span>
+      <span class="badge info">ε-NKA</span>
+    </div>
+    <div class="verdict ok"><span class="badge ok">TOČNO ✓</span> Automat je ekvivalentan ciljanom regularnom izrazu.</div>
+    <div class="stepper" style="margin-top:12px">
+      <span class="step done"><span class="step-num">1</span> Leksička</span>
+      <span class="step active"><span class="step-num">2</span> Sintaksna</span>
+      <span class="step"><span class="step-num">3</span> Semantička</span>
+    </div>
+    <div class="progress" style="margin-top:10px" role="progressbar" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100">
+      <div class="progress-bar" style="width:65%"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>6. Tabovi i tablica prijelaza</h2>
+    <div class="tabs" role="tablist">
+      <button class="tab active" type="button" role="tab" aria-selected="true" data-tab="t1">Tablica prijelaza</button>
+      <button class="tab" type="button" role="tab" aria-selected="false" data-tab="t2">Skupovi stanja</button>
+    </div>
+    <div id="t1" class="tblwrap">
+      <table class="t">
+        <thead>
+          <tr><th>Stanje</th><th>Skup ε-NKA</th><th>a</th><th>b</th><th>Prihvatljivo</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>A</td><td>{0, 1, 2, 4, 7}</td><td>B</td><td>A</td><td><span class="tag gray">Ne</span></td></tr>
+          <tr class="hl"><td>B</td><td>{1, 2, 3, 4, 6, 7, 8}</td><td>B</td><td>C</td><td><span class="tag gray">Ne</span></td></tr>
+          <tr><td>D</td><td>{1, 2, 4, 5, 6, 7, 10}</td><td>B</td><td>A</td><td><span class="tag green">Da</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="t2" class="small muted" hidden>Pomoćni prikaz skupova stanja u drugom tabu.</div>
+  </div>
+
+  <div class="panel">
+    <h2>7. SVG automat</h2>
+    <div class="gwrap">
+      <svg viewBox="0 0 420 120" width="420" style="width:100%;max-width:420px;min-width:280px;height:auto">
+        <defs>
+          <marker id="sg-a" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0,0L10,5L0,10z" class="arr"/></marker>
+          <marker id="sg-h" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0,0L10,5L0,10z" class="arr act"/></marker>
+        </defs>
+        <path class="edge" d="M22,60 L58,60" marker-end="url(#sg-a)"/>
+        <path class="edge active" d="M102,60 L182,60" marker-end="url(#sg-h)"/>
+        <path class="edge" d="M226,60 L306,60" marker-end="url(#sg-a)"/>
+        <g class="gn">
+          <circle class="node" cx="80" cy="60" r="20"/>
+          <text class="nid" x="80" y="64" text-anchor="middle">q0</text>
+        </g>
+        <g class="gn">
+          <circle class="node active" cx="204" cy="60" r="20"/>
+          <text class="nid" x="204" y="64" text-anchor="middle">q1</text>
+        </g>
+        <g class="gn">
+          <circle class="node final" cx="328" cy="60" r="20"/>
+          <circle class="ring" cx="328" cy="60" r="15.5"/>
+          <text class="nid" x="328" y="64" text-anchor="middle">q2</text>
+        </g>
+        <text class="lbl act" x="142" y="50" text-anchor="middle">a</text>
+        <text class="lbl" x="266" y="50" text-anchor="middle">b</text>
+      </svg>
+    </div>
+  </div>
+
+  <p class="footer">PPJ dizajn sustav — MIT tokeni prilagođeni iz Notion Kita (<a href="../assets/DESIGN.md">DESIGN.md</a>).</p>
+</div>
+<script>
+(function () {
+  document.querySelectorAll('[data-set-theme]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var t = btn.getAttribute('data-set-theme');
+      window.PPJTheme.setTheme(t === 'auto' ? null : t);
+    });
+  });
+  var tabs = document.querySelectorAll('.tabs .tab');
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (other) {
+        var on = other === tab;
+        other.classList.toggle('active', on);
+        other.setAttribute('aria-selected', on ? 'true' : 'false');
+        var panel = document.getElementById(other.getAttribute('data-tab'));
+        if (panel) panel.hidden = !on;
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
