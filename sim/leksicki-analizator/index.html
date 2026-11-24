@@ -4,60 +4,73 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Leksički analizator — PPJ</title>
+<script src="../../assets/theme.js"></script>
 <link rel="stylesheet" href="../../assets/style.css">
 <style>
-  .ctrl { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--line); margin: 0 0 8px; }
-  .ctrl .row { gap: 8px; }
-  .ctrl input[type=range] { flex: 1 1 120px; min-width: 90px; accent-color: var(--accent); }
-  .ctrl select { width: auto; font: 13px var(--sans); }
-  .exrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
-  .exrow .btn { padding: 4px 10px; font-size: 13px; }
-  .exrow .btn.on { border-color: var(--accent); background: var(--chip); }
-  textarea#src { min-height: 150px; font-size: 14px; line-height: 1.5; tab-size: 4; }
-  .grid2 > div { min-width: 0; }
+  .ctrl .toolbar { margin-bottom: 0; gap: 6px 8px; }
+  .ctrl input[type=range] { flex: 1 1 120px; min-width: 90px; }
+  .ctrl input[type=range]:focus-visible { outline: 2px solid var(--accent-raw); outline-offset: 2px; border-radius: var(--r-sm); }
+  .ctrl select { width: auto; max-width: 100%; font: 13px/1.3 var(--sans); min-height: 32px; }
+  .exrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+  textarea#src { min-height: 150px; tab-size: 4; }
   .panel h2 .sub { font-weight: 400; color: var(--muted); font-size: 13px; }
-  .note { border-left: 4px solid var(--accent); line-height: 1.55; min-height: 3.4em; }
-  .note code, .panel code { font: 13px var(--mono); background: var(--chip); color: var(--chip-ink); padding: 0 4px; border-radius: 4px; }
+  .note-callout { min-height: 4.2em; margin: 10px 0; }
+  .note-callout .callout-body { overflow-wrap: break-word; }
   /* izvorni tekst s kazaljkama */
-  pre.srcv { margin: 0; padding: 14px 10px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
-    font: 14px/2.5 var(--mono); overflow: auto; white-space: pre; max-height: 360px; }
+  pre.srcv {
+    margin: 0; padding: 16px 12px;
+    background: var(--bg-subtle); border: 1px solid var(--line); border-radius: var(--r-md);
+    font: 14px/2.5 var(--mono); color: var(--ink);
+    overflow: auto; white-space: pre; max-height: 360px;
+  }
   .c { position: relative; border-radius: 2px; }
   .c.tok { background: var(--chip); color: var(--chip-ink); }
   .c.skp { color: var(--muted); font-style: italic; }
-  .c.bad { color: var(--err); text-decoration: underline wavy; background: color-mix(in srgb, var(--err) 18%, transparent); }
+  .c.bad { color: var(--err); text-decoration: underline wavy; background: var(--err-bg); }
   .c.cur { background: var(--hl); color: var(--hl-ink); }
   .c.la { outline: 1px dashed var(--accent); outline-offset: -1px; }
   .c.nl, .c.tb, .c.eof { color: var(--muted); }
   .c.tb { display: inline-block; width: 4ch; }
-  .c[data-top]::before { content: attr(data-top); position: absolute; left: 50%; transform: translateX(-50%); bottom: 100%; margin-bottom: 1px;
-    font: 700 9px/1.15 var(--mono); background: var(--ok); color: var(--bg); padding: 0 3px; border-radius: 3px; white-space: nowrap; z-index: 2; }
-  .c[data-bot]::after { content: attr(data-bot); position: absolute; left: 50%; transform: translateX(-50%); top: 100%; margin-top: 1px;
-    font: 700 9px/1.15 var(--mono); background: var(--accent); color: var(--accent-ink); padding: 0 3px; border-radius: 3px; white-space: nowrap; z-index: 2; }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-top: 8px; }
-  .legend .c { padding: 0 4px; font: 12px var(--mono); }
+  .c[data-top]::before {
+    content: attr(data-top); position: absolute; left: 50%; transform: translateX(-50%); bottom: 100%; margin-bottom: 1px;
+    font: 700 9px/1.15 var(--mono); background: var(--ok); color: var(--bg);
+    padding: 0 3px; border-radius: 3px; white-space: nowrap; z-index: 2;
+  }
+  .c[data-bot]::after {
+    content: attr(data-bot); position: absolute; left: 50%; transform: translateX(-50%); top: 100%; margin-top: 1px;
+    font: 700 9px/1.15 var(--mono); background: var(--accent); color: var(--bg);
+    padding: 0 3px; border-radius: 3px; white-space: nowrap; z-index: 2;
+  }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-top: 8px; align-items: center; }
+  .legend .c { padding: 1px 5px; font: 12px var(--mono); }
+  .legend .tag { font: 600 11px/1.3 var(--mono); padding: 1px 5px; margin: 0 2px; }
   .vars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
   @media (max-width: 560px) { .vars { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  .vars div { border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; background: var(--bg); }
-  .vars b { display: block; font: 600 15px var(--mono); }
-  .vars span { font-size: 12px; color: var(--muted); }
-  .scroll { overflow: auto; max-height: 300px; }
+  .vars div { border: 1px solid var(--line); border-radius: var(--r-md); padding: 6px 10px; background: var(--bg-subtle); }
+  .vars b { display: block; font: 600 15px/1.35 var(--mono); color: var(--ink); }
+  .vars span { display: block; font-size: 12px; color: var(--muted); }
+  .tblwrap.scroll { max-height: 300px; overflow: auto; }
+  .tblwrap table.t { border: 0; }
+  .tblwrap table.t th:first-child, .tblwrap table.t td:first-child { border-left: 0; }
+  .tblwrap table.t th:last-child, .tblwrap table.t td:last-child { border-right: 0; }
+  .tblwrap table.t tr:first-child th, .tblwrap table.t tr:first-child td { border-top: 0; }
+  .tblwrap table.t tr:last-child td { border-bottom: 0; }
   table.t td.n, table.t th.n { text-align: right; }
   table.t td.st { text-align: center; width: 3.2em; }
   .rules td:nth-child(3) { font-size: 12px; }
   .rules tr.win td { background: var(--hl); color: var(--hl-ink); }
   .rules tr.dead td { color: var(--muted); }
-  ul.errs { margin: 0; padding-left: 18px; font: 13px var(--mono); }
+  ul.errs { margin: 0; padding-left: 18px; font: 13px/1.5 var(--mono); color: var(--err); }
   ul.errs li { margin: 3px 0; }
-  details { margin-top: 8px; }
-  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-  .small { font-size: 12.5px; }
-  .cap { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
-  .tag { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--muted); }
+  .cap { font-size: 12.5px; color: var(--muted); margin: 8px 0 0; line-height: 1.45; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Leksički analizator</h1>
+  <div class="topbar">
+    <h1>Leksički analizator</h1>
+    <a class="btn popout" href="./" target="_blank" rel="noopener">↗ Otvori veći prikaz</a>
+  </div>
   <p class="lead">Upišite mali program (ili učitajte primjer iz knjige) i pratite kako leksički analizator znak po znak grupira ulaz u leksičke jedinke, odbacuje bjeline i komentare, puni tablicu znakova i oporavlja se od nedozvoljenih znakova.</p>
 
   <div class="panel">
@@ -67,11 +80,12 @@
   </div>
 
   <div class="ctrl">
-    <div class="row">
+    <div class="toolbar">
       <button class="btn" id="bReset" type="button">⟲ Reset</button>
       <button class="btn" id="bBack" type="button">◀ Natrag</button>
       <button class="btn primary" id="bNext" type="button">Korak ▶</button>
       <button class="btn" id="bPlay" type="button">▶ Auto-play</button>
+      <span class="sep" aria-hidden="true"></span>
       <select id="gran" aria-label="Veličina koraka">
         <option value="tok">korak = jedna jedinka</option>
         <option value="char">korak = jedan znak</option>
@@ -81,7 +95,10 @@
     </div>
   </div>
 
-  <div class="panel note" id="note" aria-live="polite"></div>
+  <div class="callout info note-callout" id="noteWrap">
+    <span class="callout-icon" id="noteIcon" aria-hidden="true">ℹ️</span>
+    <div class="callout-body" id="note" aria-live="polite"></div>
+  </div>
 
   <div class="panel">
     <h2>Izvorni tekst i kazaljke <span class="sub">(odjeljak 2.9.6, slika 2.21)</span></h2>
@@ -93,7 +110,7 @@
   <div class="grid2">
     <div class="panel">
       <h2>Leksička pravila <span class="sub">(redoslijed = prioritet)</span></h2>
-      <div class="scroll" style="max-height:none"><table class="t rules" id="rules"></table></div>
+      <div class="tblwrap"><table class="t rules" id="rules"></table></div>
       <p class="cap"><b>P2:</b> ako niz zadovoljava više izraza, vrijedi onaj zapisan prvi (zato je <code>ako</code> ključna riječ, a ne identifikator). <b>P3:</b> traži se najdulji prefiks definiran nekim izrazom (<code>ako123</code> je identifikator). <b>Oporavak:</b> ako ništa ne odgovara, odbacuje se krajnje lijevi znak, ispisuje se pogreška i analiza se nastavlja.</p>
     </div>
     <div class="panel">
@@ -104,29 +121,32 @@
 
   <div class="panel">
     <h2>Izlaz: niz leksičkih jedinki <span class="sub">(slika 1.3) i niz uniformnih znakova (slika 2.11)</span></h2>
-    <div class="scroll" id="outwrap"><table class="t" id="out"></table></div>
+    <div class="tblwrap scroll" id="outwrap"><table class="t" id="out"></table></div>
     <p class="cap">Izdaje se par <i>(KlasaLeksičkeJedinke, LeksičkaJedinka)</i>. Sintaksnom analizatoru u tablici uniformnih znakova ide uniformni znak (<code>IDN</code>, <code>KON</code> ili <code>KROS</code>) i kazaljka na zapis u odgovarajućoj tablici (pristup II, tablica 2.2). Bjeline i komentari ne izdaju ništa.</p>
   </div>
 
   <div class="grid2">
     <div class="panel">
       <h2>Tablica identifikatora</h2>
-      <div class="scroll"><table class="t" id="tid"></table></div>
+      <div class="tblwrap scroll"><table class="t" id="tid"></table></div>
       <p class="cap">Jedan zapis po različitom identifikatoru. <i>Tip</i> je za sada <code>NULL</code>: određuje ga semantička analiza (slika 2.7: popunjava se u ostalim koracima).</p>
     </div>
     <div class="panel">
       <h2>Tablica konstanti</h2>
-      <div class="scroll"><table class="t" id="tco"></table></div>
+      <div class="tblwrap scroll"><table class="t" id="tco"></table></div>
       <p class="cap">Jedan zapis po različitoj konstanti, s tipom <code>INTBroj</code> ili <code>FLOATBroj</code> koji se određuje već iz znakova konstante (slika 2.8).</p>
     </div>
   </div>
 
   <div class="panel">
     <h2>Što ide u tablicu znakova?</h2>
-    <p style="margin:0 0 6px">Prema odjeljku 2.4 tablicu znakova čine <b>tablica identifikatora</b>, <b>tablica konstanti</b> i <b>nepromjenjiva tablica ključnih riječi, operatora i specijalnih znakova</b> (KROS); uz njih leksički analizator vodi i <b>tablicu uniformnih znakova</b> u redoslijedu iz izvornog programa. Pri svakoj jedinki klase IDN ili konstante pretražuje se pripadna tablica: ako zapis postoji, upisuje se samo kazaljka na njega, inače se stvara novi zapis.</p>
-    <details id="krosd"><summary>Tablica ključnih riječi, operatora i specijalnih znakova (KROS)</summary>
-      <div class="scroll" style="margin-top:8px"><table class="t" id="kros"></table></div>
-      <p class="cap">Brojevi ako=1, onda=2, inače=3, <code>=</code>=50, <code>&gt;</code>=51, <code>;</code>=101, <code>(</code>=102, <code>)</code>=103, <code>{</code>=104, <code>}</code>=105 preuzeti su sa slike 2.11; ostali su dodani za ovu simulaciju.</p>
+    <p style="margin:0 0 8px">Prema odjeljku 2.4 tablicu znakova čine <b>tablica identifikatora</b>, <b>tablica konstanti</b> i <b>nepromjenjiva tablica ključnih riječi, operatora i specijalnih znakova</b> (KROS); uz njih leksički analizator vodi i <b>tablicu uniformnih znakova</b> u redoslijedu iz izvornog programa. Pri svakoj jedinki klase IDN ili konstante pretražuje se pripadna tablica: ako zapis postoji, upisuje se samo kazaljka na njega, inače se stvara novi zapis.</p>
+    <details class="toggle boxed" id="krosd">
+      <summary>Tablica ključnih riječi, operatora i specijalnih znakova (KROS)</summary>
+      <div class="toggle-body">
+        <div class="tblwrap scroll"><table class="t" id="kros"></table></div>
+        <p class="cap">Brojevi ako=1, onda=2, inače=3, <code>=</code>=50, <code>&gt;</code>=51, <code>;</code>=101, <code>(</code>=102, <code>)</code>=103, <code>{</code>=104, <code>}</code>=105 preuzeti su sa slike 2.11; ostali su dodani za ovu simulaciju.</p>
+      </div>
     </details>
   </div>
 
@@ -423,20 +443,23 @@ if (typeof document !== 'undefined') (function () {
   const $ = id => document.getElementById(id);
   let T = lexTrace(''), k = -1, timer = null, gran = 'tok', exOn = -1;
 
-  $('exrow').insertAdjacentHTML('beforeend', EXAMPLES.map((e, i) => `<button type="button" class="btn" data-ex="${i}">${esc(e.name)}</button>`).join(''));
+  $('exrow').insertAdjacentHTML('beforeend', EXAMPLES.map((e, i) => `<button type="button" class="btn sm" data-ex="${i}" aria-pressed="false">${esc(e.name)}</button>`).join(''));
   $('legend').innerHTML =
     '<span><span class="c cur">abc</span> najdulji prihvaćeni prefiks</span><span><span class="c la">abc</span> pročitano dalje</span>' +
     '<span><span class="c tok">abc</span> izdana jedinka</span><span><span class="c skp">abc</span> odbačeno</span><span><span class="c bad">abc</span> pogreška</span>' +
-    '<span><span class="tag">P</span> Početak <span class="tag">Z</span> Završetak <span class="tag">L</span> Posljednji</span>';
+    '<span><span class="tag blue">P</span> Početak <span class="tag green">Z</span> Završetak <span class="tag blue">L</span> Posljednji</span>';
   $('krosd').addEventListener('toggle', () => { $('kros').innerHTML = krosHTML(T, k); });
 
-  function stop() { if (timer) { clearInterval(timer); timer = null; $('bPlay').textContent = '▶ Auto-play'; } }
+  function stop() { if (timer) { clearInterval(timer); timer = null; $('bPlay').textContent = '▶ Auto-play'; $('bPlay').classList.remove('active'); } }
   function load(text) {
     stop(); T = lexTrace(text); k = -1; render();
   }
   function render() {
     const e = k >= 0 ? T.events[k] : null;
     $('note').innerHTML = e ? e.msg : (T.src.trim() ? INTRO : 'Upišite izvorni program ili odaberite primjer.');
+    const kind = e && e.t === 'error' ? 'err' : e && e.t === 'eof' ? 'ok' : 'info';
+    $('noteWrap').className = 'callout ' + kind + ' note-callout';
+    $('noteIcon').textContent = kind === 'err' ? '⛔' : kind === 'ok' ? '✅' : 'ℹ️';
     $('srcv').innerHTML = srcHTML(T, k);
     $('vars').innerHTML = varsHTML(T, k);
     $('rules').innerHTML = rulesHTML(T, k);
@@ -465,21 +488,23 @@ if (typeof document !== 'undefined') (function () {
     if (timer) { stop(); return; }
     if (k >= T.events.length - 1) k = -1;
     $('bPlay').textContent = '⏸ Pauza';
+    $('bPlay').classList.add('active');
     timer = setInterval(() => { if (k < T.events.length - 1) go(nextIdx(T, k, gran)); else stop(); }, gran === 'char' ? 450 : 900);
   };
   $('exrow').onclick = e => {
     const b = e.target.closest('[data-ex]'); if (!b) return;
     $('src').value = EXAMPLES[+b.dataset.ex].text; load($('src').value);
-    document.querySelectorAll('#exrow .btn').forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('#exrow .btn').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
   };
-  $('src').addEventListener('input', () => { document.querySelectorAll('#exrow .btn').forEach(x => x.classList.remove('on')); load($('src').value); });
+  $('src').addEventListener('input', () => { document.querySelectorAll('#exrow .btn').forEach(x => { x.classList.remove('on'); x.setAttribute('aria-pressed', 'false'); }); load($('src').value); });
   document.addEventListener('keydown', e => {
     const tg = document.activeElement && document.activeElement.tagName;
     if (tg === 'TEXTAREA' || tg === 'SELECT') return;
     if (e.key === 'ArrowRight') { stop(); go(nextIdx(T, k, gran)); }
     else if (e.key === 'ArrowLeft') { stop(); go(prevIdx(T, k, gran)); }
   });
-  $('src').value = EXAMPLES[0].text; document.querySelector('#exrow .btn').classList.add('on'); load($('src').value);
+  const firstEx = document.querySelector('#exrow .btn');
+  $('src').value = EXAMPLES[0].text; firstEx.classList.add('on'); firstEx.setAttribute('aria-pressed', 'true'); load($('src').value);
 })();
 </script>
 </body>
