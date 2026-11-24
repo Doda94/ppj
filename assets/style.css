@@ -252,7 +252,6 @@ a:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 3
   justify-content: space-between;
   gap: 8px;
 }
-.popout { display: none; text-decoration: none; }
 
 .panel {
   background: var(--panel);
@@ -439,6 +438,8 @@ input[type=range] {
   color: var(--accent-ink);
   border-color: transparent;
 }
+.popout,
+.btn.popout { display: none; text-decoration: none; }
 
 .toolbar {
   display: flex;
@@ -520,14 +521,14 @@ details.toggle > summary {
 }
 details.toggle > summary::-webkit-details-marker { display: none; }
 details.toggle > summary::before {
-  content: "▸";
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  font-size: 12px;
-  color: var(--muted);
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent var(--muted);
+  margin: 0 3px 0 2px;
   transition: transform 140ms ease;
   flex-shrink: 0;
 }
@@ -882,7 +883,9 @@ html.in-embed .page-icon {
   display: none;
 }
 html[data-embed="1"] .popout,
-html.in-embed .popout {
+html.in-embed .popout,
+html[data-embed="1"] .btn.popout,
+html.in-embed .btn.popout {
   display: inline-flex;
   align-items: center;
   padding: 3px 9px;
