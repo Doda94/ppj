@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generator leksičkog analizatora (Lex)</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+  .small { font-size: 13px; }
+  .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--sans); font-size: 13px; padding: 3px 10px; }
+  .ex:hover, .ex.sel { border-color: var(--accent); }
+  .ex:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ctl { margin: 6px 0 10px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line);
+    font: 600 13px var(--sans); color: var(--muted); background: var(--bg); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.err { color: var(--err); border-color: var(--err); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+  .stepbox { border-left: 4px solid var(--accent); background: var(--bg); padding: 8px 12px; border-radius: 6px;
+    margin: 8px 0 10px; min-height: 3.2em; }
+  .stepbox.stop { border-left-color: var(--warn); }
+  .stepbox.error { border-left-color: var(--err); }
+  .stepbox.emit { border-left-color: var(--ok); }
+  .stepbox code { font-family: var(--mono); }
+  .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 6px; }
+  .gwrap svg { display: block; margin: 0 auto; }
+  svg .arr { fill: var(--muted); }
+  svg .arr.act { fill: var(--accent); }
+  svg .ring { fill: none; stroke: var(--ink); stroke-width: 1.2; }
+  svg .nid { font-size: 12px; }
+  svg .lbl { font-size: 12px; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+  svg .cap { font-size: 12px; fill: var(--muted); }
+  svg .acc { font-size: 11px; fill: var(--ink); font-weight: 700; }
+  .tblwrap { overflow-x: auto; margin: 8px 0; }
+  table.t td.num, table.t th.num { text-align: right; }
+  table.t tr.dim td { color: var(--muted); }
+  table.t tr.zero td { color: var(--warn); }
+  /* pravila */
+  .rrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+  .rrow:first-child { border-top: 0; }
+  .rrow .rn { font: 700 13px var(--mono); min-width: 28px; color: var(--accent); }
+  .rrow input[type=text] { width: auto; }
+  .rrow .re { flex: 2 1 190px; min-width: 120px; }
+  .rrow .cl { flex: 1 1 110px; min-width: 90px; }
+  .rrow .arrow { color: var(--muted); }
+  .rrow label.dis { display: inline-flex; align-items: center; gap: 4px; margin: 0; white-space: nowrap; cursor: pointer; }
+  .rrow .btn { padding: 4px 9px; }
+  .rmsg { flex: 1 0 100%; font-size: 13px; padding-left: 34px; margin-top: -2px; }
+  /* ulazni niz s kazaljkama */
+  .strip { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0; align-items: flex-start; }
+  .strip .cell { display: flex; flex-direction: column; align-items: center; min-width: 28px; }
+  .strip .pos { font: 10px var(--mono); color: var(--muted); line-height: 1.2; }
+  .strip .c { width: 100%; text-align: center; padding: 3px 4px; border: 1px solid var(--line); border-radius: 5px;
+    font: 16px var(--mono); background: var(--bg); color: var(--ink); }
+  .strip .c.todo { color: var(--muted); }
+  .strip .c.tok { background: var(--chip); color: var(--chip-ink); border-color: transparent; }
+  .strip .c.tok.alt { background: var(--panel); border-color: var(--chip-ink); }
+  .strip .c.disc { color: var(--muted); border-style: dotted; }
+  .strip .c.errc { color: var(--err); border-color: var(--err); text-decoration: line-through; }
+  .strip .c.scan { background: var(--hl); color: var(--hl-ink); border-color: transparent; opacity: .8; }
+  .strip .c.last { box-shadow: inset 0 -3px 0 var(--ok); }
+  .strip .c.cur { opacity: 1; font-weight: 700; border-color: var(--warn); }
+  .strip .mk { font: 700 11px var(--mono); min-height: 14px; line-height: 14px; }
+  .mk .P { color: var(--accent); } .mk .Z { color: var(--warn); } .mk .L { color: var(--ok); }
+  .strip .endc { align-self: center; color: var(--muted); font: 14px var(--mono); padding: 0 4px; }
+  .vars { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
+  .vars .v { border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; background: var(--bg); min-width: 92px; }
+  .vars .v span { display: block; font-size: 11.5px; color: var(--muted); }
+  .vars .v b { font: 600 15px var(--mono); }
+  .vars .v.wide { flex: 1 1 220px; }
+  .legend { color: var(--muted); font-size: 12.5px; margin: 4px 0 0; }
+  h3 { font-size: 14px; margin: 14px 0 6px; }
+  .tag { font: 600 12px var(--sans); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .note { color: var(--muted); font-size: 13.5px; margin: 8px 0 0; }
+  details { margin-top: 8px; } details summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+  @media (max-width: 520px) { .wrap { padding: 14px 12px 40px; } .btn { padding: 7px 10px; } .rmsg { padding-left: 0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Generator leksičkog analizatora (Lex)</h1>
+  <p class="lead">Zadaj pravila „regularni izraz → klasa jedinke“ i ulazni tekst, pa korak po korak prati kako simulator nad kombiniranim ε-NKA odabire najdulje podudaranje, razrješava nejednoznačnost redoslijedom pravila i oporavlja se od pogreške.</p>
+
+  <div class="panel">
+    <h2>Primjeri</h2>
+    <div class="row" id="presets" style="gap:6px"></div>
+    <p class="note" id="presetnote"></p>
+  </div>
+
+  <section class="panel" aria-labelledby="hr">
+    <h2 id="hr">Pravila (prioritet = redoslijed)</h2>
+    <div id="rules"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="addrule" type="button">+ Dodaj pravilo</button>
+      <span class="muted small">Ako dva pravila prihvaćaju isti najdulji niz, vrijedi ono koje je u popisu više (knjiga 2.9.3, pravilo P2). Označi „odbaci“ za pravila bez izlaza (bjeline).</span>
+    </div>
+    <details>
+      <summary>Sintaksa regularnih izraza</summary>
+      <ul class="small" style="margin:6px 0 0;padding-left:20px">
+        <li><code>a|b</code> unija (u knjizi <code>a+b</code>), <code>ab</code> ulančavanje, <code>*</code> zatvorenje, <code>+</code> jedno ili više, <code>?</code> nula ili jedno, <code>( )</code> grupiranje</li>
+        <li><code>[a-zA-Z0-9]</code> klasa, <code>[^"]</code> komplement, <code>.</code> bilo koji znak osim novog retka, <code>\d</code> <code>\w</code> <code>\s</code>, <code>\e</code> prazan niz</li>
+        <li><code>\</code> ukida posebno značenje: <code>\.</code> <code>\+</code> <code>\(</code> <code>\*</code>. Razmak je običan znak: <code>[ \t\n]+</code> su bjeline.</li>
+      </ul>
+    </details>
+  </section>
+
+  <section class="panel" aria-labelledby="hu">
+    <h2 id="hu">Ulazni tekst</h2>
+    <label for="src">Izvorni program (do 300 znakova)</label>
+    <input type="text" id="src" autocomplete="off" autocapitalize="off" spellcheck="false">
+  </section>
+
+  <section class="panel" aria-labelledby="hn">
+    <h2 id="hn">Kombinirani ε-NKA</h2>
+    <p class="small" id="nsum" style="margin:0 0 8px"></p>
+    <div class="tblwrap" id="ntbl"></div>
+    <label class="small" style="display:inline-flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="showg"> Prikaži graf kombiniranog ε-NKA</label>
+    <div class="gwrap" id="ng" style="margin-top:8px" hidden></div>
+    <p class="legend">Prema slici 2.18 u knjizi: novo početno stanje <b>0</b> (p<sub>0</sub>) ima ε-prijelaze u početna stanja ε-NKA svih pravila; svako pravilo ima vlastito prihvatljivo stanje (oznaka r<sub>i</sub>). Stupac „izdano“ pokazuje koliko je jedinki trenutni ulaz dobio od pravila — nula znači da pravilo na tom ulazu nikad ne pobjeđuje.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="hs">
+    <h2 id="hs">Simulacija leksičke analize</h2>
+    <div class="row ctl" id="ctl"></div>
+    <div><span class="tag" id="kind"></span></div>
+    <div class="strip" id="strip" aria-label="Ulazni tekst s kazaljkama"></div>
+    <p class="legend" style="margin-top:0"><span class="mk"><b class="P">P</b></span> Početak (prvi znak neanalizirane jedinke) · <span class="mk"><b class="Z">Z</b></span> Završetak (zadnji pročitani znak) · <span class="mk"><b class="L">L</b></span> Posljednji (kraj najduljeg prepoznatog prefiksa, zeleni donji rub). Žuta pozadina = jedinka koja se trenutno čita.</p>
+    <div class="stepbox" id="dec" aria-live="polite"></div>
+    <div class="vars" id="vars"></div>
+    <h3>Aktivna stanja ε-NKA i pravila koja trenutno prihvaćaju</h3>
+    <div id="act"></div>
+    <h3>Izlaz: niz jedinki</h3>
+    <div class="tblwrap" id="out"></div>
+  </section>
+
+  <p class="footer"><a href="../../index.html">← sve simulacije</a></p>
+</div>
+
+<script src="../../assets/regex.js"></script>
+<script>
+(function () {
+  'use strict';
+  var RX = window.PPJ_Regex, esc = RX.escXml, vis = RX.vis, fmt = RX.fmtSet;
+  function $(id) { return document.getElementById(id); }
+  var MAXLEN = 300;
+
+  var WS = ['[ \\t\\n]+', '', true];
+  var PRESETS = [
+    { id: 'kr', name: 'Ključna riječ ili identifikator', input: 'ako123=3121 ako onda x1',
+      note: 'Niz „ako123“ moguće je grupirati kao ključnu riječ ako + konstantu 123 ili kao jedan identifikator. Najdulje podudaranje bira identifikator; sam „ako“ prihvaćaju i KR_AKO i IDN, pa odlučuje redoslijed (knjiga, tablica 2.3 i slika 2.20).',
+      rules: [['ako', 'KR_AKO'], ['onda', 'KR_ONDA'], ['inace', 'KR_INACE'], ['[a-zA-Z][a-zA-Z0-9]*', 'IDN'], ['[0-9]+', 'KON'], ['=', 'OP_PRIDRUZI'], ['<', 'OP_MANJE'], WS] },
+    { id: 'rel', name: '< i <=, = i ==', input: 'a<=b == c = d < e',
+      note: 'Operatori koji su prefiks drugih operatora: simulator čita dalje dok može i pamti zadnje prihvaćanje, pa „<=“ pobjeđuje „<“, a „==“ pobjeđuje „=“. Pogledaj korak „odluka“ i vraćanje kazaljke Završetak.',
+      rules: [['==', 'OP_JEDNAKO'], ['=', 'OP_PRIDRUZI'], ['<=', 'OP_MANJEJ'], ['<', 'OP_MANJE'], ['>=', 'OP_VECEJ'], ['>', 'OP_VECE'], ['[a-zA-Z][a-zA-Z0-9]*', 'IDN'], ['[0-9]+', 'KON'], WS] },
+    { id: 'real', name: '1.5 ili 1 . 5', input: '1.5 12 3. .7 4.56.7',
+      note: 'Realni broj 1.5 mogao bi biti i INT, TOCKA, INT. Najdulje podudaranje bira REAL. Kod „3.“ simulator pročita točku, ali jer iza nje nema znamenke, vraća se na „3“ i točka postaje zasebna jedinka.',
+      rules: [['[0-9]+\\.[0-9]+', 'REAL'], ['[0-9]+', 'INT'], ['\\.', 'TOCKA'], WS] },
+    { id: 'err', name: 'Oporavak od pogreške', input: 'x1 = 5 # y @@ 2',
+      note: 'Znakovi # i @ ne pripadaju nijednom pravilu: nijedan prefiks ostatka ulaza nije prihvaćen, pa se prvi znak izbacuje (ispisuje kao pogreška) i analiza se nastavlja od sljedećeg (knjiga 2.9.5).',
+      rules: [['[a-zA-Z][a-zA-Z0-9]*', 'IDN'], ['[0-9]+', 'KON'], ['[=+*/-]', 'OPERATOR'], WS] },
+    { id: 'prio', name: 'Pogrešan redoslijed pravila', input: 'ako akoa onda',
+      note: 'IDN je naveden prije ključnih riječi, pa za jednako dugačke nizove (ako, onda) pobjeđuje IDN i ključne riječi nikad ne dobiju jedinku — pogledaj stupac „izdano“. Pomakni pravila ↑ da to popraviš.',
+      rules: [['[a-zA-Z][a-zA-Z0-9]*', 'IDN'], ['ako', 'KR_AKO'], ['onda', 'KR_ONDA'], WS] },
+    { id: 'tab23', name: 'Tablica 2.3 iz knjige', input: 'cijena=1000 ako cijena < 500 onda x=1',
+      note: 'Pravila iz tablice 2.3: ključne riječi ako, onda, inace, identifikator, konstanta, operator pridruživanja i relacijski operator.',
+      rules: [['ako', 'KR_AKO'], ['onda', 'KR_ONDA'], ['inace', 'KR_INACE'], ['[a-zA-Z]([a-zA-Z]|[0-9])*', 'IDN'], ['[0-9][0-9]*', 'KON'], ['=', 'OP_PRIDRUZI'], ['<', 'OP_REL'], WS] }
+  ];
+
+  var rules = [];           // [{src, cls, discard}]
+  var lx = null, lt = null; // leksički analizator i trag
+  var stepper = null;
+  var selPreset = null;
+
+  /* ------------------------------------------------ korak / natrag / reset / auto-play */
+  function Stepper(host, onChange, delay) {
+    host.innerHTML =
+      '<button class="btn" type="button" data-a="reset">⏮ Reset</button>' +
+      '<button class="btn" type="button" data-a="back">◀ Natrag</button>' +
+      '<button class="btn primary" type="button" data-a="next">Korak ▶</button>' +
+      '<button class="btn" type="button" data-a="play">▶ Auto-play</button>' +
+      '<button class="btn" type="button" data-a="tok">Do iduće jedinke ⏩</button>' +
+      '<button class="btn" type="button" data-a="end">Do kraja ⏭</button>' +
+      '<span class="badge" data-a="cnt" aria-live="polite"></span>';
+    var st = { i: 0, max: 0, timer: null, kinds: [] }, btn = {};
+    Array.prototype.forEach.call(host.querySelectorAll('[data-a]'), function (b) { btn[b.getAttribute('data-a')] = b; });
+    function stop() { if (st.timer) { clearInterval(st.timer); st.timer = null; btn.play.textContent = '▶ Auto-play'; } }
+    function refresh() {
+      btn.reset.disabled = btn.back.disabled = st.i <= 0;
+      btn.next.disabled = btn.end.disabled = btn.tok.disabled = st.i >= st.max;
+      btn.cnt.textContent = 'Korak ' + st.i + ' / ' + st.max;
+      onChange(st.i);
+    }
+    function go(v) { st.i = Math.max(0, Math.min(st.max, v)); refresh(); }
+    btn.reset.onclick = function () { stop(); go(0); };
+    btn.back.onclick = function () { stop(); go(st.i - 1); };
+    btn.next.onclick = function () { stop(); go(st.i + 1); };
+    btn.end.onclick = function () { stop(); go(st.max); };
+    btn.tok.onclick = function () {
+      stop();
+      var j = st.i + 1;
+      while (j < st.max && st.kinds[j] !== 'emit' && st.kinds[j] !== 'error') j++;
+      go(j);
+    };
+    btn.play.onclick = function () {
+      if (st.timer) { stop(); return; }
+      if (st.i >= st.max) go(0);
+      btn.play.textContent = '⏸ Pauza';
+      st.timer = setInterval(function () { go(st.i + 1); if (st.i >= st.max) stop(); }, delay || 900);
+    };
+    return { set: function (max, kinds, at) { stop(); st.max = max; st.kinds = kinds; go(at || 0); }, stop: stop };
+  }
+
+  /* ------------------------------------------------ pravila (uređivanje) */
+  function renderRules() {
+    var host = $('rules');
+    host.innerHTML = '';
+    rules.forEach(function (r, i) {
+      var row = document.createElement('div');
+      row.className = 'rrow';
+      row.innerHTML =
+        '<span class="rn">r' + (i + 1) + '</span>' +
+        '<input type="text" class="re" aria-label="Regularni izraz pravila ' + (i + 1) + '" spellcheck="false" autocomplete="off" autocapitalize="off">' +
+        '<span class="arrow" aria-hidden="true">→</span>' +
+        '<input type="text" class="cl" aria-label="Klasa jedinke pravila ' + (i + 1) + '" placeholder="klasa" spellcheck="false" autocomplete="off" autocapitalize="off">' +
+        '<label class="dis"><input type="checkbox" class="dsc"> odbaci</label>' +
+        '<button class="btn up" type="button" title="Prioritet više" aria-label="Pomakni pravilo ' + (i + 1) + ' gore">↑</button>' +
+        '<button class="btn dn" type="button" title="Prioritet niže" aria-label="Pomakni pravilo ' + (i + 1) + ' dolje">↓</button>' +
+        '<button class="btn del" type="button" title="Ukloni pravilo" aria-label="Ukloni pravilo ' + (i + 1) + '">✕</button>' +
+        '<div class="rmsg" aria-live="polite"></div>';
+      var re = row.querySelector('.re'), cl = row.querySelector('.cl'), dsc = row.querySelector('.dsc');
+      re.value = r.src; cl.value = r.cls; dsc.checked = r.discard; cl.disabled = r.discard;
+      if (r.discard) cl.placeholder = '(bez izlaza)';
+      re.oninput = function () { r.src = re.value; rebuild(true); };
+      cl.oninput = function () { r.cls = cl.value; rebuild(true); };
+      dsc.onchange = function () { r.discard = dsc.checked; cl.disabled = r.discard; cl.placeholder = r.discard ? '(bez izlaza)' : 'klasa'; rebuild(true); };
+      row.querySelector('.up').disabled = i === 0;
+      row.querySelector('.dn').disabled = i === rules.length - 1;
+      row.querySelector('.up').onclick = function () { rules.splice(i - 1, 0, rules.splice(i, 1)[0]); renderRules(); rebuild(); };
+      row.querySelector('.dn').onclick = function () { rules.splice(i + 1, 0, rules.splice(i, 1)[0]); renderRules(); rebuild(); };
+      row.querySelector('.del').onclick = function () { rules.splice(i, 1); renderRules(); rebuild(); };
+      host.appendChild(row);
+    });
+    if (!rules.length) host.innerHTML = '<p class="muted small">Nema pravila — dodaj barem jedno.</p>';
+  }
+  function showRuleMessages() {
+    var rows = $('rules').querySelectorAll('.rrow');
+    lx.rules.forEach(function (r, i) {
+      var m = rows[i] && rows[i].querySelector('.rmsg');
+      if (!m) return;
+      if (r.error) m.innerHTML = '<span class="err">⚠ ' + esc(r.error) + ' Pravilo se zasad ne koristi.</span>';
+      else if (r.matchesEmpty) m.innerHTML = '<span class="warn">⚠ Izraz prihvaća i prazan niz; simulator takva podudaranja ignorira (jedinka mora imati barem jedan znak).</span>';
+      else if (!r.discard && !r.cls) m.innerHTML = '<span class="warn">Klasa nije zadana (prikazuje se „?“).</span>';
+      else m.textContent = '';
+    });
+  }
+
+  /* ------------------------------------------------ izgradnja i prikaz */
+  function svgInto(el, scene, id, label) {
+    el.innerHTML = RX.renderScene(scene, { id: id, label: label });
+    try {
+      var act = el.querySelectorAll('circle.node.active');
+      if (act.length && el.scrollWidth > el.clientWidth + 2) {
+        var er = el.getBoundingClientRect(), sum = 0;
+        Array.prototype.forEach.call(act, function (c) { var r = c.getBoundingClientRect(); sum += r.left + r.width / 2 - er.left + el.scrollLeft; });
+        el.scrollLeft = Math.max(0, sum / act.length - el.clientWidth / 2);
+      } else el.scrollLeft = 0;
+    } catch (e) { /* nije kritično */ }
+  }
+  function ruleTag(i) { var r = lx.rules[i - 1]; return 'r' + i + (r.discard ? ' (odbaci)' : ' (' + esc(r.cls || '?') + ')'); }
+
+  function rebuild(typed) {
+    if (typed) {   // korisnik je ručno promijenio pravila/ulaz: primjer više ne vrijedi
+      selPreset = null; $('presetnote').textContent = '';
+      Array.prototype.forEach.call($('presets').querySelectorAll('.ex'), function (b) { b.classList.remove('sel'); });
+    }
+    lx = RX.buildLexer(rules);
+    showRuleMessages();
+    var s = $('src').value;
+    lt = RX.lexTrace(lx, s, MAXLEN);
+    renderNfaPanel();
+    var kinds = lt.steps.map(function (x) { return x.kind; });
+    stepper.set(lt.steps.length - 1, kinds, 0);
+    try { history.replaceState(null, '', selPreset ? '#p=' + selPreset : location.pathname + location.search); } catch (e) { /* file:// */ }
+  }
+
+  function renderNfaPanel() {
+    var ok = lx.rules.filter(function (r) { return r.ok; }), total = lx.n;
+    var counts = {};
+    lt.tokens.forEach(function (t) { if (!t.error) counts[t.rule] = (counts[t.rule] || 0) + 1; });
+    $('nsum').innerHTML = 'Ukupno <b>' + total + '</b> stanja = 1 (novo početno stanje p<sub>0</sub> = 0) + ' +
+      (ok.length ? ok.map(function (r) { return r.nstates; }).join(' + ') : '0') + ' (stanja ε-NKA pojedinih pravila); ' + lx.edges.length + ' prijelaza.';
+    var h = '<table class="t"><thead><tr><th>Pravilo</th><th>Izraz</th><th>Klasa / akcija</th><th class="num">Stanja</th><th class="num">Početno</th><th class="num">Prihvatljivo</th><th class="num">Izdano</th></tr></thead><tbody>';
+    lx.rules.forEach(function (r) {
+      var used = counts[r.index] || 0;
+      h += '<tr' + (r.ok && used === 0 && lt.tokens.length ? ' class="zero"' : '') + '><td><b>r' + r.index + '</b></td><td>' + esc(r.src === '' ? '(prazno)' : vis(r.src)) + '</td><td>' +
+        (r.discard ? '<i>odbaci</i>' : esc(r.cls || '?')) + '</td>' +
+        (r.ok ? '<td class="num">' + r.nstates + '</td><td class="num">' + r.start + '</td><td class="num">' + r.accept + '</td><td class="num">' + used + '</td>'
+          : '<td colspan="4" class="err">nevaljan izraz</td>') + '</tr>';
+    });
+    $('ntbl').innerHTML = h + '</tbody></table>';
+    var cb = $('showg');
+    if (cb.dataset.touched !== '1') cb.checked = total <= 40;
+    $('ng').hidden = !cb.checked;
+  }
+
+  function charClassFor(step) {
+    var n = step.n, cls = [], i, k;
+    for (i = 1; i <= n; i++) cls[i] = { c: 'todo' };
+    for (k = 0; k < step.nout; k++) {
+      var t = lt.tokens[k];
+      for (i = t.from; i <= t.to; i++) cls[i] = { c: t.error ? 'errc' : t.discard ? 'disc' : ('tok' + (k % 2 ? ' alt' : '')) };
+    }
+    if (step.kind !== 'done') {
+      for (i = step.pocetak; i <= step.zavrsetak && i <= n; i++) cls[i] = { c: 'scan' };
+      if (step.zavrsetak >= step.pocetak && step.zavrsetak <= n) cls[step.zavrsetak].c += ' cur';
+      if (step.posljednji > 0) cls[step.posljednji].c += ' last';
+    }
+    return cls;
+  }
+
+  var KIND = { init: 'Početak rada', read: 'Čitanje znaka', stop: 'Odluka — čitanje je stalo', emit: 'Izdavanje jedinke', error: 'Oporavak od pogreške', done: 'Kraj' };
+
+  var curStep = 0;
+  function renderStep(i) {
+    if (!lt) return;
+    curStep = i;
+    var s = lt.steps[i], n = s.n, chars = lt.chars;
+    $('kind').textContent = KIND[s.kind] || '';
+    // niz znakova s kazaljkama
+    var cls = charClassFor(s), h = '', p;
+    if (!n) h = '<span class="muted">(prazan ulaz)</span>';
+    for (p = 1; p <= n; p++) {
+      var m = '';
+      if (s.kind !== 'done') {
+        if (p === s.pocetak) m += '<b class="P">P</b>';
+        if (s.zavrsetak >= s.pocetak && p === s.zavrsetak) m += '<b class="Z">Z</b>';
+        if (s.posljednji > 0 && p === s.posljednji) m += '<b class="L">L</b>';
+      }
+      h += '<div class="cell"><span class="pos">' + p + '</span><span class="c ' + cls[p].c + '">' + esc(vis(chars[p - 1])) + '</span><span class="mk">' + m + '</span></div>';
+    }
+    if (n) h += '<span class="endc">⊣</span>';
+    $('strip').innerHTML = h;
+
+    $('dec').className = 'stepbox ' + (s.kind === 'stop' ? (s.decision && s.decision.error ? 'error' : 'stop') : s.kind === 'emit' ? 'emit' : s.kind === 'error' ? 'error' : '');
+    $('dec').textContent = s.text;
+    if (s.kind === 'stop' && s.decision) $('dec').textContent = s.text;
+
+    var izr = s.izraz ? ruleTag(s.izraz) : '—';
+    $('vars').innerHTML =
+      '<div class="v"><span>Početak</span><b>' + (s.pocetak <= n ? s.pocetak : s.pocetak + ' (kraj)') + '</b></div>' +
+      '<div class="v"><span>Završetak</span><b>' + s.zavrsetak + '</b></div>' +
+      '<div class="v"><span>Posljednji</span><b>' + (s.posljednji || '—') + '</b></div>' +
+      '<div class="v"><span>Izraz</span><b>' + izr + '</b></div>' +
+      '<div class="v wide"><span>Skup aktivnih stanja R</span><b>' + esc(fmt(s.R)) + '</b></div>';
+
+    // pravila koja trenutno prihvaćaju
+    var acc = [];
+    s.R.forEach(function (q) { if (lx.acceptRule[q]) acc.push(lx.acceptRule[q]); });
+    acc.sort(function (a, b) { return a - b; });
+    var ah = '';
+    if (s.kind === 'read' || s.kind === 'init' || s.kind === 'stop') {
+      ah += '<div class="small">' + (s.R.length ? '<b>' + s.R.length + '</b> aktivnih stanja. ' : '<span class="err">Nema aktivnih stanja.</span> ') + '</div>';
+      ah += '<div style="margin-top:4px">Prihvaćaju sada: ' + (acc.length ? acc.map(function (a, ix) {
+        return '<span class="chip' + (ix === 0 ? ' hl' : '') + '" title="' + (ix === 0 ? 'prvo u popisu — ima prednost' : 'ima ga prije u popisu pravilo ' + acc[0]) + '">' + ruleTag(a) + '</span>';
+      }).join('') : '<span class="muted">nijedno pravilo</span>') + '</div>';
+    } else ah = '<div class="muted small">Simulator je (ponovno) u početnom skupu R = ε-okruženje(p<sub>0</sub>).</div>';
+    $('act').innerHTML = ah;
+
+    var cb = $('showg');
+    if (cb.checked) {
+      var g = $('ng');
+      g.hidden = false;
+      var act2 = new Set(s.R);
+      svgInto(g, RX.combinedScene(lx, { active: act2 }), 'gl', 'Kombinirani ε-NKA, aktivna stanja ' + fmt(s.R));
+    } else $('ng').hidden = true;
+
+    // izlaz
+    var oh = '<table class="t"><thead><tr><th class="num">#</th><th>Jedinka</th><th>Klasa</th><th>Pravilo</th><th>Napomena</th></tr></thead><tbody>';
+    if (!s.nout) oh += '<tr><td colspan="5" class="muted">Još nema izdanih jedinki.</td></tr>';
+    for (var k = 0; k < s.nout; k++) {
+      var t = lt.tokens[k], fresh = k === s.nout - 1 && (s.kind === 'emit' || s.kind === 'error');
+      if (t.error) oh += '<tr class="' + (fresh ? 'hl' : '') + '"><td class="num">' + (k + 1) + '</td><td>' + esc(vis(t.text)) + '</td><td class="err">POGREŠKA</td><td>—</td><td>nedozvoljen znak (poz. ' + t.from + '), izbačen</td></tr>';
+      else oh += '<tr class="' + (fresh ? 'hl' : (t.discard ? 'dim' : '')) + '"><td class="num">' + (k + 1) + '</td><td>' + esc(vis(t.text)) + '</td><td>' + (t.discard ? '<i>odbačeno</i>' : esc(t.cls || '?')) + '</td><td>r' + t.rule + '</td><td>poz. ' + t.from + (t.to > t.from ? '–' + t.to : '') + (t.rewind ? ', vraćanje kazaljke' : '') + '</td></tr>';
+    }
+    $('out').innerHTML = oh + '</tbody></table>' + (n >= MAXLEN ? '<p class="muted small">Ulaz je skraćen na ' + MAXLEN + ' znakova.</p>' : '');
+  }
+
+  /* ------------------------------------------------ povezivanje */
+  stepper = Stepper($('ctl'), renderStep, 850);
+
+  var ph = $('presets');
+  PRESETS.forEach(function (p) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip ex'; b.textContent = p.name; b.dataset.id = p.id;
+    b.onclick = function () { loadPreset(p.id); };
+    ph.appendChild(b);
+  });
+  function loadPreset(id) {
+    var p = PRESETS.filter(function (x) { return x.id === id; })[0];
+    if (!p) return;
+    selPreset = id;
+    rules = p.rules.map(function (r) { return { src: r[0], cls: r[1], discard: !!r[2] }; });
+    $('src').value = p.input;
+    $('presetnote').textContent = p.note;
+    Array.prototype.forEach.call(ph.querySelectorAll('.ex'), function (b) { b.classList.toggle('sel', b.dataset.id === id); });
+    renderRules();
+    rebuild();
+  }
+  $('addrule').onclick = function () {
+    rules.push({ src: '', cls: '', discard: false });
+    renderRules(); rebuild();
+    var ins = $('rules').querySelectorAll('.re'); if (ins.length) ins[ins.length - 1].focus();
+  };
+  $('src').addEventListener('input', function () { rebuild(true); });
+  $('showg').addEventListener('change', function () { this.dataset.touched = '1'; renderStepCurrent(); });
+  function renderStepCurrent() { renderStep(curStep); }
+
+  var m = /#p=(\w+)/.exec(location.hash);
+  loadPreset(m ? m[1] : 'kr');
+})();
+</script>
+</body>
+</html>

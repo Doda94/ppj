@@ -1,0 +1,898 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Faze prevođenja — PPJ</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+  .ctrl { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--line); margin: 0 0 8px; }
+  .ctrl .row { gap: 8px; }
+  .ctrl input[type=range] { flex: 1 1 140px; min-width: 100px; accent-color: var(--accent); }
+  .phases { display: flex; flex-wrap: wrap; gap: 14px; margin: 4px 0 10px; }
+  .pgroup { display: flex; flex-direction: column; gap: 4px; }
+  .pgroup .cap { font-size: 12px; color: var(--muted); }
+  .pgroup .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ph { padding: 5px 10px; font-size: 13px; }
+  .ph .n { display: inline-block; min-width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 9px;
+    background: var(--chip); color: var(--chip-ink); font: 12px var(--mono); margin-right: 5px; }
+  .ph.done { border-color: var(--ok); }
+  .ph.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .ph.active .n { background: var(--accent-ink); color: var(--accent); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 12px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  .layout .panel { margin: 0 0 12px; }
+  .note { border-left: 4px solid var(--accent); line-height: 1.55; }
+  .note code, .panel code { font: 13px var(--mono); background: var(--chip); color: var(--chip-ink); padding: 0 4px; border-radius: 4px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 860px) { .grid3 { grid-template-columns: 1fr; } }
+  .grid2 > div, .grid3 > div { min-width: 0; }
+  .src .rest { color: var(--muted); }
+  .src .ws { color: var(--muted); }
+  .src .wsb { display: inline-block; width: .6em; height: .95em; border: 1px dotted var(--muted); vertical-align: -.12em; margin: 0 1px; }
+  .ln { display: block; padding: 0 4px; border-radius: 3px; min-height: 1.6em; }
+  .ln.del { text-decoration: line-through; color: var(--err); }
+  .ln.new { color: var(--ok); font-weight: 600; }
+  .ln.sep { border-top: 1px dashed var(--line); }
+  .blk { float: right; font: 11px var(--mono); color: var(--muted); margin-left: 8px; }
+  .treebox { overflow: auto; max-height: 560px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .treebox svg { display: block; }
+  .treebox.fit svg { width: 100%; height: auto; }
+  svg .node.term { fill: var(--chip); }
+  svg .node.term.active { fill: var(--hl); }
+  svg .node.hidden { opacity: .35; }
+  .stackcol { display: flex; flex-direction: column; gap: 4px; min-height: 60px; }
+  .sbox { border: 1px solid var(--ink); border-radius: 4px; padding: 3px 8px; font: 13px var(--mono); background: var(--panel); text-align: center; }
+  .sbox small { display: block; color: var(--muted); font-size: 11px; }
+  .sbox.top { background: var(--hl); color: var(--hl-ink); }
+  .sbox.top small { color: var(--hl-ink); }
+  .qitem { font: 13px var(--mono); padding: 1px 6px; border-bottom: 1px dotted var(--line); }
+  .qitem.cur { background: var(--hl); color: var(--hl-ink); }
+  .qitem.cur::before { content: "▶ "; }
+  .small { font-size: 12.5px; }
+  td.act { font: 12.5px var(--mono); }
+  .opt { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin: 8px 0 0; font-size: 13px; }
+  .opt label { display: inline-flex; gap: 6px; align-items: center; margin: 0; color: var(--ink); }
+  .opt select { width: auto; font: 13px var(--sans); }
+  .kv td:first-child { color: var(--muted); }
+  details { margin-top: 8px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .msgs li { margin: 2px 0; font: 13px var(--mono); }
+  .msgs ul { padding-left: 18px; margin: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Faze prevođenja korak po korak</h1>
+  <p class="lead">Pratite primjer funkcije <code>IzračunajCijenu</code> iz knjige (odjeljak 1.1) kroz sve faze jezičnog procesora: od leksičke analize i sintaksnog stabla do međukoda, optimiranja i strojnog programa. Klikom na traku faza skočite na pojedinu fazu.</p>
+
+  <div class="ctrl">
+    <div class="row">
+      <button class="btn" id="bReset" type="button">⟲ Reset</button>
+      <button class="btn" id="bBack" type="button">◀ Natrag</button>
+      <button class="btn primary" id="bNext" type="button">Korak ▶</button>
+      <button class="btn" id="bPlay" type="button">▶ Auto-play</button>
+      <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Položaj u simulaciji">
+      <span class="muted small mono" id="counter"></span>
+    </div>
+  </div>
+
+  <div class="phases" id="phases" role="tablist" aria-label="Faze prevođenja"></div>
+
+  <div class="panel note" id="note" aria-live="polite"></div>
+
+  <div class="layout">
+    <div id="view"></div>
+    <aside>
+      <div class="panel" id="symp"></div>
+      <div class="panel msgs" id="errp"></div>
+    </aside>
+  </div>
+
+  <p class="footer"><a href="../../index.html">← sve simulacije</a> · Izvor: S. Srbljić, <i>Prevođenje programskih jezika</i>, odjeljak 1.1, slike 1.2–1.12, tablice 1.1–1.7.</p>
+</div>
+
+<script>
+'use strict';
+/* ================= Podaci iz knjige ================= */
+const SRC_BASE = [
+  'IzračunajCijenu ()',
+  '{',
+  '    ako (Količina > 20)',
+  '        Cijena = 1000;',
+  '    inače',
+  '        Cijena = 1200;',
+  '    NovaCijena = Cijena;',
+  '}'
+].join('\n');
+
+// Tablica 1.3: izvorni program proširen naredbama PosPor = 8; i PosPor = PosPor / 2;
+const SRC_EXT = [
+  'IzračunajCijenu ()',
+  '{',
+  '    ako (Količina > 20)',
+  '    {',
+  '        Cijena = 1000;',
+  '        PosPor = 8;',
+  '    }',
+  '    inače',
+  '    {',
+  '        Cijena = 1200;',
+  '        PosPor = 8;',
+  '    }',
+  '    NovaCijena = Cijena;',
+  '    PosPor = PosPor / 2;',
+  '}'
+].join('\n');
+
+const PH = [null, 'Izvorni program', 'Leksička analiza', 'Sintaksna analiza', 'Semantička analiza',
+  'Generiranje međukoda', 'Strojno nezavisno optimiranje', 'Generiranje strojnog programa', 'Strojno zavisno optimiranje'];
+
+const KW = ['ako', 'inače', 'za', 'dok', 'skoči', 'slučaj'];
+const SO_CH = '(){};,=<>+-*/';
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ================= 1) Leksička analiza (pojednostavljena; detalje vidi simulaciju "leksički analizator") ================= */
+function lexSimple(src) {
+  const t = []; const n = src.length; let i = 0;
+  const L = c => /\p{L}/u.test(c), D = c => c >= '0' && c <= '9';
+  while (i < n) {
+    const c = src[i];
+    if (/\s/.test(c)) { i++; continue; }
+    const s = i; let k;
+    if (L(c)) { while (i < n && (L(src[i]) || D(src[i]))) i++; k = KW.includes(src.slice(s, i)) ? 'KR' : 'IDN'; }
+    else if (D(c)) {
+      while (i < n && D(src[i])) i++; k = 'INT';
+      if (src[i] === '.' && D(src[i + 1] || '')) { i++; while (i < n && D(src[i])) i++; k = 'FLOAT'; }
+    }
+    else if (SO_CH.includes(c)) { i++; if ((c === '=' || c === '<' || c === '>') && src[i] === '=') i++; k = 'SO'; }
+    else throw new Error('Nedozvoljen znak ' + c);
+    t.push({ k, v: src.slice(s, i), s, e: i });
+  }
+  return t;
+}
+const pair = t => `(${t.k}, ${t.v})`;
+
+// Tablica znakova nakon obrade prvih n jedinki (zapis po jedinstvenom identifikatoru / konstanti)
+function symbolsUpTo(toks, n) {
+  const ids = [], consts = []; let last = null;
+  for (let i = 0; i < n && i < toks.length; i++) {
+    const t = toks[i]; last = null;
+    if (t.k === 'IDN') {
+      let ix = ids.findIndex(x => x.name === t.v);
+      if (ix < 0) { ids.push({ name: t.v, tip: null }); ix = ids.length - 1; last = { table: 'ids', idx: ix, isNew: true }; }
+      else last = { table: 'ids', idx: ix, isNew: false };
+    } else if (t.k === 'INT' || t.k === 'FLOAT') {
+      let ix = consts.findIndex(x => x.v === t.v);
+      if (ix < 0) { consts.push({ v: t.v, tip: t.k === 'INT' ? 'INTBroj' : 'FLOATBroj' }); ix = consts.length - 1; last = { table: 'consts', idx: ix, isNew: true }; }
+      else last = { table: 'consts', idx: ix, isNew: false };
+    }
+  }
+  return { ids, consts, last };
+}
+
+/* ================= 2) Sintaksna analiza: rekurzivni spust → sintaksno stablo (slika 1.4) ================= */
+function parseProgram(toks) {
+  let p = 0, nid = 0;
+  const NT = label => ({ id: nid++, label, nt: true, kids: [] });
+  const eat = (k, v) => {
+    const t = toks[p];
+    if (!t || t.k !== k || (v !== undefined && t.v !== v)) throw new Error('Sintaksna pogreška kod jedinke ' + (t ? pair(t) : 'kraj'));
+    return { id: nid++, label: pair(t), nt: false, tok: p++, kids: [] };
+  };
+  const isSO = v => toks[p] && toks[p].k === 'SO' && toks[p].v === v;
+  function potprogram() {
+    const n = NT('<Potprogram>');
+    n.kids.push(eat('IDN'), eat('SO', '('), eat('SO', ')'), blok());
+    return n;
+  }
+  function blok() {
+    const n = NT('<BlokNaredbi>');
+    n.kids.push(eat('SO', '{'), slijed(), eat('SO', '}'));
+    return n;
+  }
+  function slijed() {
+    const n = NT('<SlijedNaredbi>');
+    while (!isSO('}')) n.kids.push(naredba());
+    return n;
+  }
+  function naredba() {
+    const n = NT('<Naredba>');
+    if (toks[p] && toks[p].k === 'KR' && toks[p].v === 'ako') {
+      n.kids.push(eat('KR', 'ako'), eat('SO', '('), izraz(), eat('SO', ')'), naredba(), eat('KR', 'inače'), naredba());
+    } else {
+      n.kids.push(eat('IDN'), eat('SO', '='), desno(), eat('SO', ';'));
+    }
+    return n;
+  }
+  function izraz() {
+    const n = NT('<Izraz>');
+    n.kids.push(eat('IDN'), eat('SO', '>'), eat('INT'));
+    return n;
+  }
+  function desno() {
+    const n = NT('<Desno>');
+    n.kids.push(toks[p] && toks[p].k === 'INT' ? eat('INT') : eat('IDN'));
+    return n;
+  }
+  const root = potprogram();
+  if (p !== toks.length) throw new Error('Višak jedinki iza kraja potprograma');
+  return root;
+}
+
+// svaki čvor dobiva "reveal" = indeks jedinke pri čijem se čitanju prvi put pojavljuje u stablu
+function annotateReveal(n) {
+  if (!n.kids.length) n.reveal = n.tok;
+  else { n.kids.forEach(annotateReveal); n.reveal = Math.min(...n.kids.map(k => k.reveal)); }
+  return n;
+}
+function flattenTree(root) {
+  const out = []; (function w(n, d) { n.depth = d; out.push(n); n.kids.forEach(k => w(k, d + 1)); })(root, 0); return out;
+}
+// Raspored: korijen lijevo, listovi redom odozgo prema dolje (red = redoslijed jedinki u izvornom programu)
+function layoutTree(root, textW) {
+  textW = textW || (s => s.length * 7.8 + 16);
+  const nodes = flattenTree(root);
+  const maxW = [];
+  nodes.forEach(n => { n.w = textW(n.label); n.h = 24; maxW[n.depth] = Math.max(maxW[n.depth] || 0, n.w); });
+  const gapX = 30, rowH = 30, pad = 8; const colX = []; let x = pad;
+  maxW.forEach((w, d) => { colX[d] = x; x += w + gapX; });
+  let leaf = 0;
+  (function place(n) {
+    n.x = colX[n.depth];
+    if (!n.kids.length) n.y = pad + leaf++ * rowH;
+    else { n.kids.forEach(place); n.y = (n.kids[0].y + n.kids[n.kids.length - 1].y) / 2; }
+  })(root);
+  return { nodes, W: x - gapX + pad, H: pad * 2 + (leaf - 1) * rowH + 24 };
+}
+function treeSVG(lay, upto, ui) {
+  const vis = n => n.reveal <= upto;
+  let e = '', g = '';
+  lay.nodes.forEach(n => {
+    if (!vis(n)) return;
+    n.kids.forEach(k => {
+      if (!vis(k)) return;
+      const x1 = n.x + n.w, y1 = n.y + n.h / 2, x2 = k.x, y2 = k.y + k.h / 2, xm = x2 - 15;
+      e += `<path class="edge${k.reveal === upto ? ' active' : ''}" d="M${x1},${y1} H${xm} V${y2} H${x2}"/>`;
+    });
+  });
+  lay.nodes.forEach(n => {
+    if (!vis(n)) return;
+    const act = n.reveal === upto;
+    g += `<g><rect class="node${n.nt ? '' : ' term'}${act ? ' active' : ''}" x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="${n.nt ? 4 : 12}"/>` +
+      `<text x="${n.x + n.w / 2}" y="${n.y + n.h / 2 + 4.5}" text-anchor="middle" font-size="13">${esc(n.label)}</text></g>`;
+  });
+  return `<svg id="treesvg" viewBox="0 0 ${lay.W} ${lay.H}" width="${lay.W}" height="${lay.H}" role="img" aria-label="Sintaksno stablo (slika 1.4)">${e}${g}</svg>`;
+}
+
+/* ================= 2b) Stog sintaksnog analizatora (slika 1.5, tablice 1.1 i 1.2) ================= */
+function stackRule(top, tok) {
+  const so = v => tok && tok.k === 'SO' && tok.v === v;
+  if (top === '<Naredba>' && tok && tok.k === 'IDN') return 1;
+  if (top === '=' && so('=')) return 2;
+  if (top === '<Desno>' && tok && tok.k === 'IDN') return 3;
+  if (top === '<Desno>' && tok && tok.k === 'INT') return 4;
+  if (top === '<Desno>') return 5;
+  if (top === ';' && so(';')) return 6;
+  return 0;
+}
+// stack: polje, zadnji element je vrh stoga. Vraća niz stanja (početno + po jedno nakon svake akcije).
+function stackTrace(toks, init, withSem) {
+  let stack = init.slice(), pos = 0;
+  const states = [{ stack: stack.slice(), pos, rule: 0, msg: null, done: false }];
+  for (let guard = 0; guard < 50; guard++) {
+    const top = stack[stack.length - 1], tok = toks[pos];
+    const r = stackRule(top, tok);
+    if (!r) { states[states.length - 1].done = true; break; }
+    if (r === 1) { stack.pop(); stack.push(';'); if (withSem) stack.push('{ZnakLijevo}'); stack.push('<Desno>', '='); pos++; }
+    else if (r === 2 || r === 6) { stack.pop(); pos++; }
+    else if (r === 3 || r === 4) { stack.pop(); if (withSem) stack.pop(); pos++; }
+    else if (r === 5) {
+      states.push({ stack: stack.slice(), pos, rule: 5, msg: 'Sintaksna pogreška: Nepotpuna naredba pridruživanja!', done: true });
+      break;
+    }
+    states.push({ stack: stack.slice(), pos, rule: r, msg: null, done: false });
+  }
+  return states;
+}
+const ACT = {
+  1: ['(IDN, xxx)', '&lt;Naredba&gt;', 'Uzmi(&lt;Naredba&gt;) s vrha stoga;<br>Stavi(;, &lt;Desno&gt;, =) na vrh stoga;<br>Pomakni kazaljku na sljedeću leksičku jedinku;'],
+  2: ['(SO, =)', '=', 'Uzmi(=) s vrha stoga;<br>Pomakni kazaljku na sljedeću leksičku jedinku;'],
+  3: ['(IDN, xxx)', '&lt;Desno&gt;', 'Uzmi(&lt;Desno&gt;) s vrha stoga;<br>Pomakni kazaljku na sljedeću leksičku jedinku;'],
+  4: ['(INT, xxx)', '&lt;Desno&gt;', 'Uzmi(&lt;Desno&gt;) s vrha stoga;<br>Pomakni kazaljku na sljedeću leksičku jedinku;'],
+  5: ['Sve ostale jedinke', '&lt;Desno&gt;', 'Ispiši("Sintaksna pogreška: Nepotpuna naredba pridruživanja!");'],
+  6: ['(SO, ;)', ';', 'Uzmi(;) s vrha stoga;<br>Pomakni kazaljku na sljedeću leksičku jedinku;']
+};
+const ACT_SEM = {   // tablica 1.2: izmijenjene akcije (1), (3), (4)
+  1: '(IDN, xxx)|&lt;Naredba&gt;|Uzmi(&lt;Naredba&gt;) s vrha stoga;<br>Stavi(;, <b>{ZnakLijevo}</b>, &lt;Desno&gt;, =) na vrh stoga;<br>Pomakni kazaljku na sljedeću leksičku jedinku;',
+  3: '(IDN, xxx)|&lt;Desno&gt;|Uzmi(&lt;Desno&gt;) s vrha stoga;<br>Uzmi(<b>{ZnakLijevo}</b>) s vrha stoga;<br>Pomakni kazaljku na sljedeću leksičku jedinku;',
+  4: '(INT, xxx)|&lt;Desno&gt;|Uzmi(&lt;Desno&gt;) s vrha stoga;<br>Uzmi(<b>{ZnakLijevo}</b>) s vrha stoga;<br>Pomakni kazaljku na sljedeću leksičku jedinku;'
+};
+
+/* ================= 3) Semantička analiza: ProvjeriTipove() (slike 1.8 i 1.9) ================= */
+const PT_CODE = [
+  'ProvjeriTipove(ZnakLijevo, Znak)',
+  '{',
+  '  ako ((Znak.Klasa == IDN) && (Znak.Tip == NULL))',
+  '    Ispiši("Semantička pogreška: NEDEFINIRAN TIP VARIJABLE Znak.Ime");',
+  '  ako (ZnakLijevo.Tip == NULL)',
+  '    ZnakLijevo.Tip = Znak.Tip;',
+  '  ako (ZnakLijevo.Tip != Znak.Tip)',
+  '    Ispiši("Semantička pogreška: NEODGOVARAJUĆI TIPOVI PODATAKA',
+  '            ZnakLijevo.Ime i Znak.Ime");',
+  '}'
+];
+const nz = v => v === null ? 'NULL' : v;
+function semanticTrace(opts) {
+  const sym = { 'IzračunajCijenu': null, 'Količina': opts.kolicina ? 'INTBroj' : null, 'Cijena': null, 'NovaCijena': null };
+  const errs = [], out = [];
+  const push = o => out.push(Object.assign({ sym: Object.assign({}, sym), errs: errs.slice(), hl: [], left: null, right: null }, o));
+  const tipOf = z => z.k === 'INT' ? 'INTBroj' : z.k === 'FLOAT' ? 'FLOATBroj' : sym[z.v];
+  const zn = z => ({ klasa: z.k, ime: z.v, tip: nz(tipOf(z)) });
+
+  push({ kind: 'intro', text: 'Prije semantičke analize u tablici znakova svi identifikatori nemaju određen tip (<code>Tip = NULL</code>), a konstante već imaju tip <code>INTBroj</code> iz leksičke analize. Tip varijable određuje se prvom naredbom koja varijabli pridruži vrijednost.' });
+
+  // izraz Količina > 20 — knjiga (str. 13) navodi pogrešku za nedeklariranu varijablu Količina
+  const zK = { k: 'IDN', v: 'Količina' };
+  const bad = tipOf(zK) === null;
+  if (bad) errs.push('Semantička pogreška: NEDEFINIRAN TIP VARIJABLE Količina');
+  push({ kind: 'izraz', title: 'Izraz Količina > 20', right: zn(zK), hl: bad ? [2, 3] : [2], focus: 'Količina',
+    text: bad
+      ? 'U izrazu <code>Količina &gt; 20</code> koristi se varijabla <code>Količina</code> kojoj nijedna naredba nije pridružila vrijednost, pa joj je <code>Tip == NULL</code>. Uvjet iz slike 1.9 je ispunjen i ispisuje se pogreška — baš kao što knjiga navodi na kraju odjeljka o semantičkoj analizi (str. 13).'
+      : 'Varijabla <code>Količina</code> ima određen tip (<code>INTBroj</code>), pa prvi uvjet nije ispunjen i pogreške nema.' });
+
+  const assigns = [
+    { left: 'Cijena', right: { k: 'INT', v: '1000' }, stmt: 'Cijena = 1000;' },
+    { left: 'Cijena', right: { k: 'INT', v: '1200' }, stmt: 'Cijena = 1200;' },
+    { left: 'NovaCijena', right: { k: 'IDN', v: 'Cijena' }, stmt: 'NovaCijena = Cijena;' }
+  ];
+  assigns.forEach(a => {
+    const zl = { k: 'IDN', v: a.left };
+    push({ kind: 'call', title: 'Naredba ' + a.stmt, left: zn(zl), right: zn(a.right), focus: a.left,
+      text: `Prije poziva <code>Naredba()</code> izvode se <code>Čitaj(Znak); ZnakLijevo = Znak;</code>, pa <code>ZnakLijevo</code> čuva jedinku s lijeve strane znaka jednakosti. Kad <code>Desno(ZnakLijevo)</code> pročita jedinku ${esc(pair(a.right))}, poziva se <code>ProvjeriTipove(ZnakLijevo, Znak)</code>.` });
+    const c1 = a.right.k === 'IDN' && tipOf(a.right) === null;
+    if (c1) errs.push('Semantička pogreška: NEDEFINIRAN TIP VARIJABLE ' + a.right.v);
+    push({ kind: 'c1', title: a.stmt + ' — 1. provjera', left: zn(zl), right: zn(a.right), hl: c1 ? [2, 3] : [2], focus: a.left,
+      text: c1 ? 'Desna strana je identifikator bez tipa: ispisuje se pogreška.'
+        : `<code>Znak.Klasa == IDN</code> i <code>Znak.Tip == NULL</code>? Ne (${a.right.k === 'IDN' ? 'tip <code>' + nz(tipOf(a.right)) + '</code> je već određen' : 'desna strana je konstanta'}) — pogreške nema.` });
+    const c2 = sym[a.left] === null;
+    const before = sym[a.left];
+    if (c2) sym[a.left] = tipOf(a.right);
+    push({ kind: 'c2', title: a.stmt + ' — 2. provjera', left: zn(zl), right: zn(a.right), hl: c2 ? [4, 5] : [4], focus: a.left, changed: c2 ? a.left : null,
+      text: c2 ? `<code>ZnakLijevo.Tip == NULL</code>: da. Varijabla se deklarira ovom naredbom, pa <code>ZnakLijevo.Tip = Znak.Tip</code> = <code>${nz(sym[a.left])}</code>. Tip se upisuje u tablicu znakova.`
+        : `<code>ZnakLijevo.Tip == NULL</code>? Ne, <code>${esc(a.left)}</code> već ima tip <code>${nz(before)}</code>, pa se tip ne mijenja.` });
+    const c3 = sym[a.left] !== tipOf(a.right);
+    if (c3) errs.push(`Semantička pogreška: NEODGOVARAJUĆI TIPOVI PODATAKA ${a.left} i ${a.right.v}`);
+    push({ kind: 'c3', title: a.stmt + ' — 3. provjera', left: zn(zl), right: zn(a.right), hl: c3 ? [6, 7, 8] : [6], focus: a.left,
+      text: c3 ? 'Tipovi lijeve i desne strane se razlikuju: ispisuje se pogreška.'
+        : `<code>ZnakLijevo.Tip != Znak.Tip</code>? Ne, oba su <code>${nz(sym[a.left])}</code> — tipovi su odgovarajući.` });
+  });
+  push({ kind: 'end', title: 'Kraj semantičke analize',
+    text: 'Podaci o tipu prenose se po sintaksnom stablu: od dna prema vrhu (tip konstante 1000 do čvora <code>&lt;Naredba&gt;</code> i dalje do naredbe grananja) i od vrha prema dnu (do <code>&lt;Desno&gt;</code> u naredbi <code>Cijena = 1200;</code>). Tako se i <code>NovaCijena</code> određuje tip <code>INTBroj</code> iz <code>Cijena</code>. ' +
+      (errs.length ? 'Ostaje jedna pogreška: <code>Količina</code> nema tip. Knjiga ipak nastavlja isti primjer sintezom; pravi prevoditelj ne bi generirao ciljni program dok postoji pogreška.' : 'Pogrešaka nema.') });
+  return out;
+}
+
+/* ================= 4) Međukod (tablica 1.3), optimiranje (tablica 1.4), strojni program (tablica 1.5) ================= */
+const IC_ROWS = [
+  { src: ['IzračunajCijenu ()', '{'], ic: [], fixed: true },
+  { src: ['    ako (Količina > 20)'], ic: ['if Količina > 20 goto L1', 'goto L2'],
+    text: 'Naredba grananja postaje uvjetni skok <code>if X relop Y goto L</code> uz bezuvjetni skok <code>goto L2</code> za slučaj neispunjenog uvjeta. Oznake L1, L2 i L3 su parametri koji se prenose kroz sintaksno stablo, slično kao u semantičkoj analizi.' },
+  { src: ['    {', '        Cijena = 1000;', '        PosPor = 8;', '    }'], ic: ['L1: Cijena := 1000', '    PosPor := 8', '    goto L3'],
+    text: 'Naredbe pridruživanja postaju naredbe oblika <code>X := Y</code>. Zagrade <code>{ }</code> i znak <code>;</code> nestaju — nisu potrebni u daljnjim koracima. Nakon prve grane slijedi <code>goto L3</code> kojim se preskače grana <code>inače</code>.' },
+  { src: ['    inače', '    {', '        Cijena = 1200;', '        PosPor = 8;', '    }'], ic: ['L2: Cijena := 1200', '    PosPor := 8'],
+    text: 'Grana <code>inače</code> počinje oznakom L2 (cilj skoka kad uvjet nije ispunjen).' },
+  { src: ['    NovaCijena = Cijena;', '    PosPor = PosPor / 2;'], ic: ['L3: NovaCijena := Cijena', '    PosPor := PosPor / 2'],
+    text: 'Nastavak programa počinje oznakom L3 (cilj skoka iz prve grane). Kod višeg međukoda deklaracija nema jer su podaci o njima već u tablici znakova.' },
+  { src: ['}'], ic: [], fixed: true }
+];
+
+const OPT_ORIG = [
+  ['if Količina > 20 goto L1'],
+  ['goto L2'],
+  ['L1: Cijena := 1000', 'PosPor := 8', 'goto L3'],
+  ['L2: Cijena := 1200', 'PosPor := 8'],
+  ['L3: NovaCijena := Cijena', 'PosPor := PosPor / 2']
+];
+// pripremna pretvorba: definicija PosPor := 8 umeće se u 5. osnovni blok (bliže uporabi)
+function prepareIC(blocks) {
+  const b = blocks.map(x => x.slice());
+  const last = b[b.length - 1];
+  last[0] = last[0].replace(/^L3: /, '');
+  last.unshift('L3: PosPor := 8');
+  return b;
+}
+// optimiranje: višestruka definicija iz 3. i 4. bloka se odbacuje
+function optimizeIC(prepared) {
+  return prepared.map((blk, i) => (i === 2 || i === 3) ? blk.filter(s => s !== 'PosPor := 8') : blk.slice());
+}
+
+const IC_OPT = [
+  ['if Količina > 20 goto L1'], ['goto L2'], ['L1: Cijena := 1000', 'goto L3'], ['L2: Cijena := 1200'],
+  ['L3: PosPor := 8', 'NovaCijena := Cijena', 'PosPor := PosPor / 2']
+];
+const ASM_ROWS = [
+  { ic: 'if Količina > 20 goto L1', asm: ['MOVE #20, D0', 'CMP Količina, D0', 'BGT L1'], text: 'Uvjetni skok: konstanta se učita u podatkovni registar D0, usporedi se s varijablom <code>Količina</code> i uz uvjet "veće" izvodi se <code>BGT L1</code>.' },
+  { ic: 'goto L2', asm: ['BRA L2'], text: 'Bezuvjetno grananje <code>goto L</code> prevodi se u <code>BRA L</code>.' },
+  { ic: 'L1: Cijena := 1000', asm: ['L1: MOVE #1000, D0', 'MOVE D0, Cijena'], text: 'Naredba pridruživanja <code>X := Y</code> uvijek se prevodi u isti unaprijed određeni slijed: <code>MOVE &lt;AdresaY&gt;, D0</code> i <code>MOVE D0, &lt;AdresaX&gt;</code>.' },
+  { ic: 'goto L3', asm: ['BRA L3'], text: 'Još jedno bezuvjetno grananje.' },
+  { ic: 'L2: Cijena := 1200', asm: ['L2: MOVE #1200, D0', 'MOVE D0, Cijena'], text: 'Isti predložak pridruživanja; oznaka L2 prenosi se na prvu mnemoničku naredbu.' },
+  { ic: 'L3: PosPor := 8', asm: ['L3: MOVE #8, D0', 'MOVE D0, PosPor'], text: 'Ovu je naredbu optimiranje međukoda premjestilo iz obje grane u blok L3.' },
+  { ic: 'NovaCijena := Cijena', asm: ['MOVE Cijena, D0', 'MOVE D0, NovaCijena'], text: 'Varijabla se prvo dohvaća u registar D0, a zatim sprema na odredište.' },
+  { ic: 'PosPor := PosPor / 2', asm: ['MOVE PosPor, D0', 'DIVU #2, D0', 'MOVE D0, PosPor'], text: 'Dijeljenje se izvodi naredbom <code>DIVU</code> nad registrom D0. Time je dobiven mnemonički program iz tablice 1.5.' }
+];
+const ASM0 = [].concat(...ASM_ROWS.map(r => r.asm));
+
+/* ----- Strojno zavisno optimiranje: prozorčić (tablice 1.6 i 1.7) ----- */
+function parseAsm(s) {
+  const m = /^(?:([A-Za-z]\w*):\s+)?([A-Z]+)(?:\s+(.*))?$/.exec(s);
+  return { label: m[1] || '', op: m[2], args: m[3] ? m[3].split(/\s*,\s*/) : [] };
+}
+const fmtAsm = a => (a.label ? a.label + ': ' : '') + a.op + (a.args.length ? ' ' + a.args.join(', ') : '');
+const isVar = a => /^\p{L}[\p{L}\d]*$/u.test(a) && !/^D\d$/.test(a);
+function rw(a) {
+  const r = [], w = [];
+  if (a.op === 'MOVE') { if (isVar(a.args[0])) r.push(a.args[0]); if (isVar(a.args[1])) w.push(a.args[1]); }
+  else if (a.op === 'CMP') a.args.forEach(x => { if (isVar(x)) r.push(x); });
+  return { r, w };
+}
+const isBranch = a => /^B[A-Z]{1,2}$/.test(a.op);
+const cp = L => L.map(x => ({ label: x.label, op: x.op, args: x.args.slice() }));
+
+// prolaz 1: zamjena mjesta dviju neovisnih parova naredbi, ako se time store i load iste varijable nađu jedan uz drugi
+function passSwap(L0) {
+  const L = cp(L0);
+  for (let i = 0; i + 4 < L.length; i++) {
+    const [A1, A2, B1, B2, C] = L.slice(i, i + 5);
+    if (![A1, A2, B1, B2, C].every(x => x.op === 'MOVE')) continue;
+    if (A2.label || B1.label || B2.label || C.label) continue;
+    const a = [rw(A1), rw(A2)], b = [rw(B1), rw(B2)];
+    const rA = [].concat(...a.map(x => x.r)), wA = [].concat(...a.map(x => x.w));
+    const rB = [].concat(...b.map(x => x.r)), wB = [].concat(...b.map(x => x.w));
+    const clash = wA.some(v => rB.includes(v) || wB.includes(v)) || wB.some(v => rA.includes(v));
+    if (clash) continue;
+    if (!(C.args[1] === 'D0' && wA.includes(C.args[0]))) continue;
+    B1.label = A1.label; A1.label = '';
+    L.splice(i, 4, B1, B2, A1, A2);
+    return { L, hl: [i, i + 1, i + 2, i + 3], del: [], after: [i, i + 1, i + 2, i + 3] };
+  }
+  return null;
+}
+// prolaz 2: prekomjerna naredba (store X; load X u isti registar)
+function passRedundant(L0) {
+  const L = cp(L0);
+  for (let i = 0; i + 1 < L.length; i++) {
+    const s = L[i], l = L[i + 1];
+    if (s.op === 'MOVE' && s.args[0] === 'D0' && isVar(s.args[1]) && l.op === 'MOVE' && l.args[0] === s.args[1] && l.args[1] === 'D0' && !l.label) {
+      L.splice(i + 1, 1);
+      return { L, hl: [i], del: [i + 1], after: [i] };
+    }
+  }
+  return null;
+}
+// prolaz 3: mrtva naredba (spremljena vrijednost nikad se ne koristi prije novog spremanja)
+function passDead(L0) {
+  const L = cp(L0);
+  for (let i = 0; i < L.length; i++) {
+    const s = L[i];
+    if (!(s.op === 'MOVE' && s.args[0] === 'D0' && isVar(s.args[1]))) continue;
+    const v = s.args[1];
+    for (let j = i + 1; j < L.length; j++) {
+      const t = L[j];
+      if (t.label || isBranch(t)) break;
+      if (rw(t).r.includes(v)) break;
+      if (rw(t).w.includes(v)) { L.splice(i, 1); return { L, hl: [], del: [i], after: [] }; }
+    }
+  }
+  return null;
+}
+// prolaz 4: skupa operacija (DIVU #2^k) zamjenjuje se jeftinom (ROR #k)
+function passStrength(L0) {
+  const L = cp(L0);
+  for (let i = 0; i < L.length; i++) {
+    const a = L[i];
+    if (a.op === 'DIVU' && /^#\d+$/.test(a.args[0])) {
+      const n = +a.args[0].slice(1);
+      if (n > 1 && (n & (n - 1)) === 0) { a.op = 'ROR'; a.args = ['#' + Math.log2(n), a.args[1]]; return { L, hl: [i], del: [], after: [i] }; }
+    }
+  }
+  return null;
+}
+// prolaz 5: algebarsko pojednostavljenje (konstanta 8 pomaknuta za 1 bit = konstanta 4)
+function passFold(L0) {
+  const L = cp(L0);
+  for (let i = 0; i + 1 < L.length; i++) {
+    const a = L[i], b = L[i + 1];
+    if (a.op === 'MOVE' && /^#\d+$/.test(a.args[0]) && a.args[1] === 'D0' && b.op === 'ROR' && /^#\d+$/.test(b.args[0]) && b.args[1] === 'D0' && !b.label) {
+      const c = +a.args[0].slice(1), k = +b.args[0].slice(1);
+      if (c % (1 << k) === 0) { a.args[0] = '#' + (c >> k); L.splice(i + 1, 1); return { L, hl: [i], del: [i + 1], after: [i] }; }
+    }
+  }
+  return null;
+}
+const WIN_PASSES = [
+  { fn: passSwap, title: '1. prolaz: zamjena mjesta naredbi', text: 'Prozorčić je na početku bloka L3. Naredbe <code>MOVE #8, D0</code> i <code>MOVE D0, PosPor</code> (prijevod <code>PosPor = 8;</code>) nisu podatkovno zavisne od <code>MOVE Cijena, D0</code> i <code>MOVE D0, NovaCijena</code> (prijevod <code>NovaCijena = Cijena;</code>), pa im se mijenjaju mjesta. Time je spremanje <code>PosPor</code> sada odmah uz njegovo dohvaćanje.' },
+  { fn: passRedundant, title: '2. prolaz: odbacivanje prekomjerne naredbe', text: 'Vrijednost varijable <code>PosPor</code> već je u registru D0, pa je naredba <code>MOVE PosPor, D0</code> prekomjerna i odbacuje se (tablica 1.6).' },
+  { fn: passDead, title: '3. prolaz: odbacivanje mrtve naredbe', text: 'Naredbe <code>DIVU #2, D0</code> i <code>MOVE D0, PosPor</code> spremaju novu vrijednost varijable <code>PosPor</code>, pa vrijednost koju sprema prva naredba <code>MOVE D0, PosPor</code> ne koristi nijedna naredba. To je <i>mrtva naredba</i> i odbacuje se (tablica 1.7).' },
+  { fn: passStrength, title: '4. prolaz: skupa operacija → jeftina', text: 'Operacija dijeljenja <code>DIVU #2, D0</code> zamjenjuje se operacijom posmaka bitova <code>ROR #1, D0</code>, čije je trajanje znatno kraće.' },
+  { fn: passFold, title: '5. prolaz: algebarsko pojednostavljenje', text: 'Naredbe <code>MOVE #8, D0</code> i <code>ROR #1, D0</code> računaju konstantnu vrijednost 4, pa se zamjenjuju jednom naredbom <code>MOVE #4, D0</code>.' }
+];
+function runWindowPasses(lines) {
+  let L = lines.map(parseAsm); const res = [];
+  WIN_PASSES.forEach(p => {
+    const before = L.map(fmtAsm);
+    const r = p.fn(L);
+    if (r) { L = r.L; res.push({ title: p.title, text: p.text, before, after: L.map(fmtAsm), hl: r.hl, del: r.del, a: r.after }); }
+    else res.push({ title: p.title, text: p.text, before, after: before.slice(), hl: [], del: [], a: [] });
+  });
+  return res;
+}
+
+/* ================= Gradnja koraka simulacije ================= */
+function buildSteps(opts) {
+  const S = [];
+  const add = (ph, title, note, view) => S.push({ ph, title, note, view });
+
+  // --- 1. izvorni program
+  add(1, 'Izvorni program',
+    '<b>Izvorni program</b> (slika 1.2). Jezični procesor prevodi izvorni program u ciljni u dvije osnovne faze: <i>analizi izvornog programa</i> (leksička, sintaksna i semantička analiza) i <i>sintezi ciljnog programa</i> (međukod, optimiranje, generiranje strojnog programa). Faza analize prethodi sintezi kako bi se ustanovilo ima li u programu pogrešaka. Bjeline su, kao na slici u knjizi, označene praznim kvadratićima.',
+    { type: 'src', src: SRC_BASE });
+
+  // --- 2. leksička analiza
+  const toks = lexSimple(SRC_BASE);
+  add(2, 'Leksička analiza: pregled',
+    '<b>Leksička analiza</b> je linearna analiza znakova: znakovi se čitaju slijedno i grupiraju u <i>leksičke jedinke</i>, određuje im se klasa, izbacuju se bjeline i komentari. Klase: <code>IDN</code> identifikatori, <code>KR</code> ključne riječi (ako, inače, za, dok, skoči, slučaj), <code>INT</code> cjelobrojne konstante, <code>FLOAT</code> konstante s pomačnim zarezom, <code>SO</code> specijalni znakovi i operatori. Rezultat je niz uređenih parova <i>(KlasaLeksičkeJedinke, LeksičkaJedinka)</i> (slika 1.3). Usput se gradi <i>tablica znakova</i>.',
+    { type: 'lex', i: -1, toks });
+  toks.forEach((t, i) => {
+    const prevE = i ? toks[i - 1].e : 0;
+    const skipped = SRC_BASE.slice(prevE, t.s).replace(/\S/g, '').length;
+    const sy = symbolsUpTo(toks, i + 1);
+    let what;
+    if (t.k === 'IDN') what = `Niz počinje slovom, a sadrži slova i brojke: klasa <code>IDN</code>. ${sy.last.isNew ? `U tablici znakova stvara se <b>novi zapis #${sy.last.idx + 1}</b> (tip za sada <code>NULL</code>).` : `Zapis već postoji u tablici znakova (#${sy.last.idx + 1}); upisuje se samo kazaljka na njega.`}`;
+    else if (t.k === 'KR') what = `<code>${esc(t.v)}</code> je rezervirana ključna riječ: klasa <code>KR</code>. Ključne riječi se ne mogu koristiti kao imena varijabli.`;
+    else if (t.k === 'INT') what = `Niz dekadskih znamenaka: klasa <code>INT</code>. ${sy.last.isNew ? `Novi zapis #${sy.last.idx + 1} u tablici konstanti` : `Postojeći zapis #${sy.last.idx + 1}`}; tip <code>INTBroj</code> određen je već leksičkim pravilima.`;
+    else what = `Specijalni znak ili operator: klasa <code>SO</code>.`;
+    add(2, `Leksička jedinka ${i + 1}/${toks.length}`,
+      `<b>Jedinka ${i + 1}: ${esc(pair(t))}.</b> ${what}${skipped ? ` Izbačeno bjelina i znakova novog reda: ${skipped}.` : ''}${i === toks.length - 1 ? ' Time je dobiven cijeli niz leksičkih jedinki (slika 1.3); on je ulazni niz sintaksnog analizatora.' : ''}`,
+      { type: 'lex', i, toks });
+  });
+
+  // --- 3. sintaksna analiza
+  const root = annotateReveal(parseProgram(toks));
+  const lay = layoutTree(root);
+  const nodes = lay.nodes;
+  add(3, 'Sintaksna analiza: pregled',
+    '<b>Sintaksna analiza</b> je hijerarhijska analiza: leksičke jedinke grupiraju se u hijerarhijske skupine sa zajedničkim značenjem. Analizator provjerava zadovoljava li niz jedinki sintaksna pravila i gradi <i>sintaksno stablo</i> (slika 1.4) ili ispisuje poruku o pogrešci. Ovdje stablo raste jedinku po jedinku, kako bi ga gradio analizator rekurzivnim spustom (slika 1.7: stablo aktiviranja potprograma podudara se sa stablom).',
+    { type: 'tree', lay, upto: -1 });
+  const NOTES = {
+    4: ' Naredba grananja je rekurzivna: u njezinoj se definiciji ponovno koristi <code>&lt;Naredba&gt;</code>.',
+    13: ' Jedinke (IDN, Cijena), (SO, =), (INT, 1000) i (SO, ;) čine skupinu <code>&lt;Naredba&gt;</code> sa značenjem naredbe pridruživanja <code>Cijena = 1000;</code>.',
+    23: ' Stablo je izgrađeno do kraja: sve jedinke su obrađene.'
+  };
+  toks.forEach((t, i) => {
+    const nu = nodes.filter(n => n.reveal === i && n.nt).map(n => n.label);
+    add(3, `Sintaksno stablo ${i + 1}/${toks.length}`,
+      `<b>Čitaj(Znak): ${esc(pair(t))}.</b> ${nu.length ? 'Aktiviraju se potprogrami (novi čvorovi): ' + nu.map(x => '<code>' + esc(x) + '</code>').join(', ') + '. ' : ''}Jedinka se dodaje kao list stabla.${NOTES[i] || ''}`,
+      { type: 'tree', lay, upto: i });
+  });
+
+  // --- 3b. stog (slika 1.5)
+  const exs = {
+    knjiga: { label: 'Cijena = 1000; (slika 1.5)', toks: toks.slice(10), init: ['(SO, })', '<SlijedNaredbi>', '<Naredba>', '<Naredba>', '(KR, inače)', '<Naredba>'] },
+    nova: { label: 'NovaCijena = Cijena;', toks: toks.slice(19), init: ['<Naredba>'] },
+    pogreska: { label: 'Cijena = ; (pogreška)', toks: lexSimple('Cijena = ;'), init: ['<Naredba>'] }
+  };
+  const ex = exs[opts.stackEx] || exs.knjiga;
+  const st = stackTrace(ex.toks, ex.init, opts.withSem);
+  st.forEach((s, k) => {
+    let note;
+    if (k === 0) note = '<b>Stog sintaksnog analizatora</b> (slika 1.5, tablica 1.1). Ako se ne optimira međukod više razine, dijelovi sintaksnog stabla spremaju se dinamički na LIFO stog. Analizator stalno uspoređuje sadržaj vrha stoga i pročitanu leksičku jedinku te izvodi pripadnu akciju iz tablice akcija. Prikazana je obrada naredbe pridruživanja ' + esc(ex.label.replace(/ \(.*$/, '')) + (opts.stackEx === 'knjiga' || !opts.stackEx ? ' (u trenutku kad su <code>ako (Količina > 20)</code> već obrađeni; ispod stoga čekaju ostali dijelovi stabla).' : ' (odabrani primjer).') + ' Na vrhu je <code>&lt;Naredba&gt;</code>, a kazaljka pokazuje na prvu jedinku. Primjer i tablicu možete promijeniti ispod stoga.';
+    else if (s.rule === 5) note = `<b>Akcija (5):</b> na vrhu je <code>&lt;Desno&gt;</code>, a pročitana jedinka nije ni identifikator ni cijeli broj. Ispisuje se: <i>${esc(s.msg)}</i>`;
+    else {
+      const prev = st[k - 1], tk = ex.toks[prev.pos];
+      const topPrev = prev.stack[prev.stack.length - 1];
+      note = `<b>Akcija (${s.rule}):</b> jedinka <code>${esc(pair(tk))}</code>, vrh stoga <code>${esc(topPrev)}</code>. ` + {
+        1: 'Uzme se <code>&lt;Naredba&gt;</code> s vrha, a na stog se stavlja niz <code>; &lt;Desno&gt; =</code>' + (opts.withSem ? ' uz <code>{ZnakLijevo}</code> (tablica 1.2: parametri lijeve jedinke čuvaju se na stogu)' : '') + '. Usporedbom sa slikom 1.4 vidi se da su to znakovi podstabla kojemu je korijen <code>&lt;Naredba&gt;</code>. Kazaljka se pomiče.',
+        2: 'Znak <code>=</code> se poklapa: uzima se s vrha stoga, kazaljka se pomiče.',
+        3: 'Desna strana je identifikator: uzima se <code>&lt;Desno&gt;</code>' + (opts.withSem ? ' i <code>{ZnakLijevo}</code>' : '') + ' s vrha stoga, kazaljka se pomiče.',
+        4: 'Desna strana je cijeli broj: uzima se <code>&lt;Desno&gt;</code>' + (opts.withSem ? ' i <code>{ZnakLijevo}</code>' : '') + ' s vrha stoga, kazaljka se pomiče.',
+        6: 'Znak <code>;</code> se poklapa: uzima se s vrha stoga, kazaljka se pomiče.'
+      }[s.rule];
+    }
+    if (s.done && s.rule !== 5) note += (st.length === 1 ? '' : ' ') + ' Za preostale jedinke (npr. <code>(KR, inače)</code>) vrijedila bi daljnja pravila koja knjiga ne prikazuje. Sintaksna analiza uspješno završava ako na kraju ostane prazan stog, a kazaljka pokazuje na kraj niza jedinki.';
+    add(3, k === 0 ? 'Stog: početno stanje' : `Stog: nakon akcije (${s.rule})`, note, { type: 'stack', st: s, toks: ex.toks, exKey: opts.stackEx || 'knjiga', exs, withSem: !!opts.withSem });
+  });
+
+  // --- 4. semantička analiza
+  const sem = semanticTrace(opts);
+  sem.forEach((s, k) => {
+    add(4, k === 0 ? 'Semantička analiza: pregled' : (s.title || 'Semantička analiza'),
+      (k === 0 ? '<b>Semantička analiza</b> provjerava deklaracije varijabli, tipove podataka u izrazima i sl.; potprogrami semantičkog analizatora pozivaju se iz potprograma sintaksnog analizatora i most su između faze analize i faze sinteze. ' : '') + s.text,
+      { type: 'sem', s, intro: k === 0, kolicina: !!opts.kolicina });
+  });
+  const semEnd = sem[sem.length - 1];
+
+  // --- 5. međukod
+  const nIc = IC_ROWS.length - 2;
+  add(5, 'Međukod: pregled',
+    '<b>Generiranje međukoda</b> je prvi korak sinteze. Međukod je zapis izvornog programa koji se sprema u memoriju računala; ovdje je to <i>troadresni međukod srednje razine</i>: <code>X := Y</code> (pridruživanje), <code>goto L</code> (bezuvjetno grananje) i <code>if X relop Y goto L</code> (uvjetno grananje). Za ovaj korak knjiga proširuje izvorni program naredbama <code>PosPor = 8;</code> i <code>PosPor = PosPor / 2;</code> (tablica 1.3). Potprogrami generatora pozivaju se iz sintaksnog analizatora (npr. <code>GenMedukodPrid()</code>, slika 1.11).' +
+    (semEnd.errs.length ? ' <i>(Napomena: u pravom prevoditelju sinteza bi se zaustavila zbog semantičke pogreške; ovdje se, kao u knjizi, primjer nastavlja.)</i>' : ''),
+    { type: 'ic', shown: 0 });
+  for (let r = 1; r <= nIc; r++) add(5, `Međukod: ${r}/${nIc}`, '<b>' + esc(IC_ROWS[r].src[0].trim()) + (IC_ROWS[r].src.length > 1 ? ' …' : '') + '</b> — ' + IC_ROWS[r].text, { type: 'ic', shown: r });
+
+  // --- 6. strojno nezavisno optimiranje
+  const prepared = prepareIC(OPT_ORIG), optimized = optimizeIC(prepared);
+  add(6, 'Optimiranje: osnovni blokovi',
+    '<b>Strojno nezavisno optimiranje</b> ne uzima u obzir arhitekturu računala. Prvo analiza tijeka izvođenja rastavlja međukod u <b>pet osnovnih blokova</b>: niz naredbi koje se slijedno izvode, a osim zadnje u bloku nema naredbi grananja. 1. blok ispituje uvjet, 2. je skok na L2, 3. se izvodi kad je uvjet ispunjen, 4. kad nije, a 5. je nastavak programa.',
+    { type: 'opt', stage: 0, orig: OPT_ORIG, prepared, optimized });
+  add(6, 'Optimiranje: tok i zavisnost podataka',
+    'Analiza toka podataka i analiza zavisnosti podataka pokazuju da naredba <code>PosPor := 8</code> u 3. i 4. bloku definira istu vrijednost varijable <code>PosPor</code>, a ta se vrijednost ne koristi ni u 3. ni u 4. bloku — koristi se tek u 5. bloku (<code>PosPor := PosPor / 2</code>). Definiciju je zato isplativo pomaknuti bliže mjestu uporabe: tako se smanjuje vrijeme zauzetosti registra.',
+    { type: 'opt', stage: 1, orig: OPT_ORIG, prepared, optimized });
+  add(6, 'Optimiranje: pripremna pretvorba',
+    '<b>Pripremna pretvorba</b> umeće novu definiciju <code>PosPor := 8</code> u 5. osnovni blok (druga kolona tablice 1.4). Umetnuta naredba je bliže naredbi <code>PosPor := PosPor / 2</code> jer je u istom bloku.',
+    { type: 'opt', stage: 2, orig: OPT_ORIG, prepared, optimized });
+  add(6, 'Optimiranje: rezultat',
+    'Nakon pripremne pretvorbe analize se ponovno pokreću i pronalaze višestruku definiciju <code>PosPor := 8</code>. Postupak optimiranja ostavlja samo jednu naredbu u 5. bloku, a dvije iz 3. i 4. bloka odbacuje (treća kolona tablice 1.4). Međukod ima manje naredbi, a kraće je i vrijeme od definicije do uporabe varijable.',
+    { type: 'opt', stage: 3, orig: OPT_ORIG, prepared, optimized });
+
+  // --- 7. generiranje strojnog programa
+  add(7, 'Strojni program: pregled',
+    '<b>Generator strojnog programa</b> priprema strojne naredbe i simulira njihovo izvođenje. Najjednostavniji model prikazan je na prijevodu troadresnog međukoda srednje razine u mnemoničke naredbe mikroprocesora <b>Motorola MC 6800</b>: određeni tip troadresne naredbe uvijek se prevodi u isti unaprijed određeni slijed mnemoničkih naredbi (<code>D0</code> je podatkovni registar). Međukod je linearan, pa nije potrebno određivati redoslijed izvođenja.',
+    { type: 'asm', shown: 0 });
+  ASM_ROWS.forEach((r, k) => add(7, `Strojni program: ${k + 1}/${ASM_ROWS.length}`, `<b>${esc(r.ic)}</b> — ${r.text}`, { type: 'asm', shown: k + 1 }));
+
+  // --- 8. strojno zavisno optimiranje (prozorčić)
+  const passes = runWindowPasses(ASM0);
+  add(8, 'Prozorčić: pregled',
+    '<b>Strojno zavisno optimiranje</b> uzima u obzir arhitekturu računala. Najjednostavniji, ali učinkovit postupak promatra tri do pet slijednih strojnih naredbi unutar <i>prozorčića</i> koji se pomiče od početka do kraja programa: optimira se redoslijed naredbi, odbacuju se prekomjerne i nedohvatljive naredbe, izvode se algebarska pojednostavljenja. Povećanjem broja prolazaka prozorčića postiže se bolja kvaliteta. Polazište je mnemonički program iz tablice 1.5 (' + ASM0.length + ' naredbi).',
+    { type: 'win', pass: null, passes, base: ASM0 });
+  passes.forEach((p, k) => add(8, p.title, `<b>${esc(p.title)}.</b> ${p.text}`, { type: 'win', pass: k, passes, base: ASM0 }));
+  const fin = passes[passes.length - 1].after;
+  add(8, 'Prozorčić: rezultat',
+    `<b>Optimirani mnemonički program</b> (treća kolona tablice 1.7): ${fin.length} umjesto ${ASM0.length} naredbi. Još bi se moglo odbaciti <code>L3: MOVE Cijena, D0</code>, jer mu uvijek prethodi <code>MOVE #1000, D0</code> ili <code>MOVE #1200, D0</code> — no postupak s malim prozorčićem ne analizira tijek izvođenja, pa tu činjenicu ne vidi. Prekomjerne naredbe prozorčićem se nalaze samo među naredbama koje slijede jedna iza druge.`,
+    { type: 'win', pass: passes.length, passes, base: ASM0 });
+  return S;
+}
+
+/* ================= Prikaz (čisti nizovi HTML-a) ================= */
+function srcHTML(src, o) {
+  o = o || {}; let out = '';
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]; let cls = '';
+    if (o.s != null) cls = (i >= o.s && i < o.e) ? 'hl' : (i >= o.e ? 'rest' : '');
+    let ch;
+    if (c === '\n') { out += o.boxes ? '<span class="ws">↵</span>\n' : '\n'; continue; }
+    ch = (c === ' ' && o.boxes) ? '<span class="wsb"></span>' : esc(c);
+    out += cls ? `<span class="${cls}">${ch}</span>` : ch;
+  }
+  return `<pre class="code src">${out}</pre>`;
+}
+function lines(arr, flags) {
+  return arr.map((t, i) => {
+    const f = (flags && flags[i]) || '';
+    return `<span class="ln ${f}">${esc(t) || '&nbsp;'}</span>`;
+  }).join('');
+}
+function listing(arr, flags) { return `<pre class="code">${lines(arr, flags)}</pre>`; }
+
+function renderView(v, ui) {
+  ui = ui || {};
+  switch (v.type) {
+    case 'src':
+      return `<div class="panel"><h2>Izvorni program (slika 1.2)</h2>${srcHTML(v.src, { boxes: true })}<p class="muted small" style="margin:8px 0 0">Prazni kvadratići = bjeline; ↵ = znak novog reda.</p></div>`;
+    case 'lex': {
+      const t = v.toks[v.i];
+      const srcH = t ? srcHTML(SRC_BASE, { s: t.s, e: t.e }) : srcHTML(SRC_BASE);
+      const chips = v.toks.slice(0, v.i + 1).map((x, k) => `<span class="chip${k === v.i ? ' hl' : ''}">${esc(pair(x))}</span>`).join(' ');
+      return `<div class="grid2"><div class="panel"><h2>Izvorni program</h2>${srcH}</div>` +
+        `<div class="panel"><h2>Niz leksičkih jedinki (slika 1.3)</h2><div>${chips || '<span class="muted">— još ništa pročitano —</span>'}</div></div></div>`;
+    }
+    case 'tree': {
+      const fit = ui.fit ? ' fit' : '';
+      return `<div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Sintaksno stablo (slika 1.4)</h2>` +
+        `<label style="margin:0"><input type="checkbox" id="fitTree"${ui.fit ? ' checked' : ''}> prilagodi širini</label></div>` +
+        `<div class="treebox${fit}" id="treebox" style="margin-top:8px">${treeSVG(v.lay, v.upto, ui)}</div>` +
+        `<details><summary>Produkcije korištene u ovom stablu (rekonstruirano sa slike 1.4)</summary><pre class="code small">` + esc(
+`<Potprogram>    → (IDN) (SO,() (SO,)) <BlokNaredbi>
+<BlokNaredbi>   → (SO,{) <SlijedNaredbi> (SO,})
+<SlijedNaredbi> → <Naredba> <Naredba>
+<Naredba>       → (KR,ako) (SO,() <Izraz> (SO,)) <Naredba> (KR,inače) <Naredba>
+<Naredba>       → (IDN) (SO,=) <Desno> (SO,;)
+<Izraz>         → (IDN) (SO,>) (INT)
+<Desno>         → (IDN) | (INT)`) + `</pre></details></div>`;
+    }
+    case 'stack': {
+      const s = v.st;
+      const stack = s.stack.slice().reverse().map((x, k) => {
+        const sub = x === '{ZnakLijevo}' ? `<small>(IDN, Cijena)</small>` : '';
+        return `<div class="sbox${k === 0 ? ' top' : ''}">${esc(x)}${sub}</div>`;
+      }).join('');
+      const q = v.toks.map((t, k) => ({ t, k })).filter(o => o.k >= s.pos);
+      const queue = q.length ? q.map((o, j) => `<div class="qitem${j === 0 ? ' cur' : ''}">${esc(pair(o.t))}</div>`).join('') : '<div class="muted small">(kraj niza)</div>';
+      const rows = [1, 2, 3, 4, 5, 6].map(r => {
+        let a = ACT[r].slice();
+        if (v.withSem && ACT_SEM[r]) a = ACT_SEM[r].split('|');
+        return `<tr class="${s.rule === r ? 'hl' : ''}"><td>${a[0]}</td><td>${a[1]}</td><td>${r}</td><td class="act">${a[2]}</td></tr>`;
+      }).join('');
+      const opts = Object.keys(v.exs).map(k => `<option value="${k}"${k === v.exKey ? ' selected' : ''}>${esc(v.exs[k].label)}</option>`).join('');
+      return `<div class="panel"><div class="grid2" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">` +
+        `<div><h2>Stog (vrh gore)</h2><div class="stackcol">${stack || '<span class="muted">prazan stog</span>'}</div></div>` +
+        `<div><h2>Niz leksičkih jedinki</h2><div>${queue}</div></div></div>` +
+        `<div class="opt"><label>Primjer: <select id="stackEx">${opts}</select></label><label><input type="checkbox" id="withSem"${v.withSem ? ' checked' : ''}> semantika (tablica 1.2)</label></div></div>` +
+        `<div class="panel"><h2>Tablica akcija (${v.withSem ? 'tablica 1.2' : 'tablica 1.1'})</h2><div style="overflow:auto"><table class="t"><tr><th>Leksička jedinka</th><th>Vrh stoga</th><th>Broj</th><th>Akcija</th></tr>${rows}</table></div></div>`;
+    }
+    case 'sem': {
+      const s = v.s;
+      const flags = {}; s.hl.forEach(i => flags[i] = 'hl');
+      let params = '';
+      if (s.left || s.right) {
+        const z = (n, o) => o ? `<tr><td>${n}</td><td>${esc(o.klasa)}</td><td>${esc(o.ime)}</td><td>${esc(o.tip)}</td></tr>` : '';
+        params = `<table class="t" style="margin-top:8px"><tr><th>Parametar</th><th>.Klasa</th><th>.Ime</th><th>.Tip</th></tr>${z('ZnakLijevo', s.left)}${z('Znak', s.right)}</table>`;
+      }
+      const opt = v.intro ? `<div class="opt"><label><input type="checkbox" id="optKol"${v.kolicina ? ' checked' : ''}> pretpostavi da je <code>Količina</code> deklarirana (tip INTBroj)</label></div>` : '';
+      return `<div class="panel"><h2>Potprogram ProvjeriTipove() (slika 1.9)</h2>${listing(PT_CODE, flags)}${params}${opt}</div>`;
+    }
+    case 'ic': {
+      const rows = IC_ROWS.map((r, k) => {
+        const vis = r.fixed || k <= v.shown;
+        const cur = !r.fixed && k === v.shown;
+        return `<tr class="${cur ? 'hl' : ''}"><td><pre style="margin:0;font:13px/1.5 var(--mono)">${esc(r.src.join('\n'))}</pre></td>` +
+          `<td><pre style="margin:0;font:13px/1.5 var(--mono);${vis ? '' : 'visibility:hidden'}">${esc(r.ic.join('\n')) || ' '}</pre></td></tr>`;
+      }).join('');
+      return `<div class="panel"><h2>Tablica 1.3: troadresne naredbe međukoda srednje razine</h2><div style="overflow:auto"><table class="t"><tr><th>Naredbe izvornog programa</th><th>Troadresni međukod</th></tr>${rows}</table></div></div>`;
+    }
+    case 'opt': {
+      const col = (blocks, mode, vis) => {
+        let out = ''; const showBlk = v.stage >= 0;
+        blocks.forEach((b, bi) => {
+          b.forEach((l, li) => {
+            let f = '';
+            if (bi > 0 && li === 0) f += ' sep';
+            const isDef = l === 'PosPor := 8' || l === 'L3: PosPor := 8';
+            if (mode === 'orig') {
+              if (v.stage === 1 && (isDef || l === 'PosPor := PosPor / 2')) f += ' hl';
+              if (v.stage >= 3 && (bi === 2 || bi === 3) && isDef) f += ' del';
+            } else if (mode === 'prep') {
+              if (l === 'L3: PosPor := 8') f += v.stage === 2 ? ' hl' : ' new';
+            } else if (mode === 'opt') {
+              if (l === 'L3: PosPor := 8') f += ' new';
+            }
+            out += `<span class="ln${f}">${showBlk && li === 0 ? `<span class="blk">B${bi + 1}</span>` : ''}${esc(l)}</span>`;
+          });
+        });
+        return `<pre class="code" style="${vis ? '' : 'visibility:hidden'}">${out}</pre>`;
+      };
+      return `<div class="panel"><h2>Tablica 1.4: strojno nezavisno optimiranje troadresnog međukoda</h2><div class="grid3">` +
+        `<div><h2 class="muted small">Troadresni međukod</h2>${col(v.orig, 'orig', true)}</div>` +
+        `<div><h2 class="muted small">Pripremna pretvorba</h2>${col(v.prepared, 'prep', v.stage >= 2)}</div>` +
+        `<div><h2 class="muted small">Optimirani troadresni međukod</h2>${col(v.optimized, 'opt', v.stage >= 3)}</div></div></div>`;
+    }
+    case 'asm': {
+      const rows = ASM_ROWS.map((r, k) => {
+        const vis = k < v.shown;
+        return `<tr class="${k === v.shown - 1 ? 'hl' : ''}"><td><pre style="margin:0;font:13px/1.5 var(--mono)">${esc(r.ic)}</pre></td>` +
+          `<td><pre style="margin:0;font:13px/1.5 var(--mono);${vis ? '' : 'visibility:hidden'}">${esc(r.asm.join('\n'))}</pre></td></tr>`;
+      }).join('');
+      return `<div class="panel"><h2>Tablica 1.5: mnemonički program za Motorolu MC 6800</h2><div style="overflow:auto"><table class="t"><tr><th>Optimirani troadresni međukod</th><th>Mnemonički program</th></tr>${rows}</table></div></div>`;
+    }
+    case 'win': {
+      if (v.pass === null) return `<div class="panel"><h2>Mnemonički program prije optimiranja (tablica 1.5)</h2>${listing(v.base)}</div>`;
+      if (v.pass >= v.passes.length) {
+        const fin = v.passes[v.passes.length - 1].after;
+        return `<div class="panel"><div class="grid2"><div><h2>Prije (tablica 1.5): ${v.base.length} naredbi</h2>${listing(v.base)}</div><div><h2>Optimirano (tablica 1.7): ${fin.length} naredbi</h2>${listing(fin)}</div></div></div>`;
+      }
+      const p = v.passes[v.pass];
+      const fb = {}, fa = {}; p.hl.forEach(i => fb[i] = 'hl'); p.del.forEach(i => fb[i] = 'del'); p.a.forEach(i => fa[i] = 'hl');
+      const idx = v.pass + 1;
+      return `<div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(p.title)}</h2><span class="muted small">prolazak ${idx}/${v.passes.length}</span></div>` +
+        `<div class="grid2" style="margin-top:8px"><div><h2 class="muted small">Prije (${p.before.length} naredbi)</h2>${listing(p.before, fb)}</div><div><h2 class="muted small">Poslije (${p.after.length} naredbi)</h2>${listing(p.after, fa)}</div></div></div>`;
+    }
+  }
+  return '';
+}
+
+function symHTML(step, sems) {
+  const ph = step.ph, v = step.view;
+  let sym;
+  const toks = lexSimple(SRC_BASE);
+  if (ph === 1 || (ph === 2 && v.i < 0)) sym = { ids: [], consts: [], last: null };
+  else if (ph === 2) sym = symbolsUpTo(toks, v.i + 1);
+  else sym = symbolsUpTo(toks, toks.length);
+  let semSnap = null, focus = null;
+  if (ph === 4) { semSnap = v.s.sym; focus = v.s.changed || null; }
+  else if (ph >= 5) semSnap = sems[sems.length - 1].sym;
+  const hlId = (ph === 2 && sym.last && sym.last.table === 'ids') ? sym.last.idx : -1;
+  const hlCo = (ph === 2 && sym.last && sym.last.table === 'consts') ? sym.last.idx : -1;
+  const idRows = sym.ids.map((x, k) => {
+    const tip = semSnap ? nz(semSnap[x.name]) : 'NULL';
+    return `<tr class="${k === hlId || x.name === focus ? 'hl' : ''}"><td>${k + 1}</td><td>${esc(x.name)}</td><td>${tip}</td></tr>`;
+  }).join('') || '<tr><td colspan="3" class="muted">—</td></tr>';
+  const coRows = sym.consts.map((x, k) => `<tr class="${k === hlCo ? 'hl' : ''}"><td>${k + 1}</td><td>${esc(x.v)}</td><td>${x.tip}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">—</td></tr>';
+  return `<h2>Tablica znakova</h2><div style="overflow:auto"><table class="t"><tr><th>#</th><th>Identifikator</th><th>Tip</th></tr>${idRows}</table>` +
+    `<table class="t" style="margin-top:8px"><tr><th>#</th><th>Konstanta</th><th>Tip</th></tr>${coRows}</table></div>` +
+    `<p class="muted small" style="margin:8px 0 0">Zapis po jedinstvenom identifikatoru/konstanti. Tip konstante određuje leksička, a tip varijable semantička analiza.</p>`;
+}
+function errHTML(step, sems) {
+  let errs = [];
+  if (step.ph === 4) errs = step.view.s.errs;
+  else if (step.ph >= 5) errs = sems[sems.length - 1].errs;
+  return `<h2>Nadziranje pogrešaka</h2>` + (errs.length ? `<ul class="err">${errs.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : '<p class="ok" style="margin:0">Nema pogrešaka.</p>');
+}
+
+/* ================= UI ================= */
+if (typeof document !== 'undefined') (function () {
+  const $ = id => document.getElementById(id);
+  const opts = { kolicina: false, stackEx: 'knjiga', withSem: false };
+  const ui = { fit: false };
+  let steps = buildSteps(opts), sems = semanticTrace(opts), i = 0, timer = null;
+
+  // traka faza
+  const groups = [['', [1]], ['Analiza izvornog programa', [2, 3, 4]], ['Sinteza ciljnog programa', [5, 6, 7, 8]]];
+  $('phases').innerHTML = groups.map(([cap, ids]) =>
+    `<div class="pgroup"><div class="cap">${cap || '&nbsp;'}</div><div class="btns">` +
+    ids.map(p => `<button type="button" class="btn ph" data-ph="${p}" role="tab"><span class="n">${p}</span>${PH[p]}</button>`).join('') + `</div></div>`).join('');
+
+  function rebuild(keepTitle) {
+    const cur = steps[i];
+    steps = buildSteps(opts); sems = semanticTrace(opts);
+    let k = steps.findIndex(s => s.title === (keepTitle || cur.title));
+    if (k < 0) k = steps.findIndex(s => s.ph === cur.ph);
+    i = Math.max(0, k);
+  }
+  function render() {
+    const s = steps[i];
+    $('note').innerHTML = `<div class="muted small" style="margin-bottom:4px">Faza ${s.ph}: ${PH[s.ph]}</div>` + s.note;
+    $('view').innerHTML = renderView(s.view, ui);
+    $('symp').innerHTML = symHTML(s, sems);
+    $('errp').innerHTML = errHTML(s, sems);
+    $('counter').textContent = `korak ${i + 1} / ${steps.length}`;
+    const sc = $('scrub'); sc.max = steps.length - 1; sc.value = i;
+    $('bBack').disabled = i === 0; $('bNext').disabled = i === steps.length - 1;
+    document.querySelectorAll('.ph').forEach(b => {
+      const p = +b.dataset.ph;
+      b.classList.toggle('active', p === s.ph); b.classList.toggle('done', p < s.ph);
+      b.setAttribute('aria-selected', p === s.ph);
+    });
+    if (s.view.type === 'tree' && s.view.upto >= 0 && !ui.fit) {
+      const box = $('treebox'), n = s.view.lay.nodes.find(x => x.reveal === s.view.upto && !x.nt);
+      if (box && n) { box.scrollTop = Math.max(0, n.y - box.clientHeight / 2); box.scrollLeft = Math.max(0, n.x + n.w - box.clientWidth + 40); }
+    }
+    if (i === steps.length - 1) stop();
+  }
+  function go(k) { i = Math.max(0, Math.min(steps.length - 1, k)); render(); }
+  function stop() { if (timer) { clearInterval(timer); timer = null; $('bPlay').textContent = '▶ Auto-play'; } }
+  function play() {
+    if (timer) { stop(); return; }
+    if (i === steps.length - 1) i = 0;
+    $('bPlay').textContent = '⏸ Pauza';
+    timer = setInterval(() => { if (i < steps.length - 1) go(i + 1); else stop(); }, 1100);
+  }
+  $('bNext').onclick = () => { stop(); go(i + 1); };
+  $('bBack').onclick = () => { stop(); go(i - 1); };
+  $('bReset').onclick = () => { stop(); go(0); };
+  $('bPlay').onclick = play;
+  $('scrub').oninput = e => { stop(); go(+e.target.value); };
+  $('phases').onclick = e => {
+    const b = e.target.closest('.ph'); if (!b) return;
+    stop(); go(steps.findIndex(s => s.ph === +b.dataset.ph));
+  };
+  $('view').addEventListener('change', e => {
+    const t = e.target;
+    if (t.id === 'fitTree') { ui.fit = t.checked; render(); }
+    else if (t.id === 'stackEx') { opts.stackEx = t.value; stop(); steps = buildSteps(opts); i = Math.max(0, steps.findIndex(s => s.view.type === 'stack')); render(); }
+    else if (t.id === 'withSem') { opts.withSem = t.checked; rebuild(); render(); }
+    else if (t.id === 'optKol') { opts.kolicina = t.checked; rebuild(); render(); }
+  });
+  document.addEventListener('keydown', e => {
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'checkbox' && document.activeElement.type !== 'range') return;
+    if (e.key === 'ArrowRight') { stop(); go(i + 1); }
+    else if (e.key === 'ArrowLeft') { stop(); go(i - 1); }
+  });
+  render();
+})();
+</script>
+</body>
+</html>

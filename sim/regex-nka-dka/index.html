@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regularni izraz → ε-NKA → DKA</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+  .small { font-size: 13px; }
+  .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--mono); }
+  .ex:hover { border-color: var(--accent); }
+  .ex:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ctl { margin: 6px 0 10px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line);
+    font: 600 13px var(--sans); color: var(--muted); background: var(--bg); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.err { color: var(--err); border-color: var(--err); }
+  .verdict { font-size: 15px; padding: 3px 14px; }
+  .regline { font: 16px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; margin: 0 0 6px; }
+  mark.hl { background: var(--hl); color: var(--hl-ink); border-radius: 3px; padding: 0 2px; }
+  .stepbox { border-left: 4px solid var(--accent); background: var(--bg); padding: 8px 12px; border-radius: 6px;
+    margin: 8px 0 10px; min-height: 3.2em; }
+  .stepbox code, .stepbox b { font-family: var(--mono); }
+  .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 6px; }
+  .gwrap svg { display: block; margin: 0 auto; }
+  .gwrap .empty { padding: 28px 8px; text-align: center; color: var(--muted); }
+  svg .arr { fill: var(--muted); }
+  svg .arr.act { fill: var(--accent); }
+  svg .ring { fill: none; stroke: var(--ink); stroke-width: 1.2; }
+  svg .nid { font-size: 12px; }
+  svg .lbl { font-size: 12px; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+  svg .lbl.act { fill: var(--accent); font-weight: 700; }
+  svg .cap { font-size: 12px; fill: var(--muted); }
+  svg .acc { font-size: 11px; fill: var(--muted); }
+  .tblwrap { overflow-x: auto; margin: 8px 0; }
+  table.t td.cur { background: var(--hl); color: var(--hl-ink); font-weight: 700; }
+  table.t td.todo { color: var(--muted); }
+  table.t td.state { white-space: nowrap; }
+  table.t tr.proc td.state { box-shadow: inset 4px 0 0 var(--accent); }
+  .strip { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; align-items: center; }
+  .strip .c { min-width: 30px; text-align: center; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px;
+    font: 16px var(--mono); background: var(--bg); color: var(--muted); }
+  .strip .c.done { color: var(--ink); background: var(--chip); border-color: transparent; }
+  .strip .c.cur { background: var(--hl); color: var(--hl-ink); border-color: var(--warn); font-weight: 700; }
+  .strip .c.next { border-color: var(--accent); color: var(--ink); border-style: dashed; }
+  .strip .end { color: var(--muted); font: 14px var(--mono); padding: 0 4px; }
+  h3 { font-size: 14px; margin: 14px 0 6px; }
+  details { margin-top: 8px; }
+  details summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+  details ul { margin: 6px 0 0; padding-left: 20px; }
+  details li { margin: 2px 0; }
+  .errmsg { margin: 6px 0 0; min-height: 1.4em; font-size: 14px; }
+  .stale { opacity: .45; }
+  .legend { color: var(--muted); font-size: 12.5px; margin: 4px 0 0; }
+  @media (max-width: 520px) { .wrap { padding: 14px 12px 40px; } .btn { padding: 7px 10px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Regularni izraz → ε-NKA → DKA</h1>
+  <p class="lead">Upiši regularni izraz i korak po korak prati Thompsonovu konstrukciju ε-NKA, konstrukciju podskupova koja iz njega daje DKA te čitanje ulaznog niza u oba automata.</p>
+
+  <div class="panel">
+    <label for="re">Regularni izraz</label>
+    <input type="text" id="re" value="(a|b)*abb" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="reerr">
+    <div class="errmsg err" id="reerr" role="alert"></div>
+    <div class="row" id="examples" style="gap:6px;margin-top:6px" aria-label="Primjeri"></div>
+    <details>
+      <summary>Sintaksa izraza</summary>
+      <ul class="small">
+        <li><code>a|b</code> unija (u knjizi se piše <code>a+b</code>; ovdje je <code>+</code> operator „jedno ili više“), <code>ab</code> ulančavanje, <code>a*</code> Kleeneovo zatvorenje, <code>a+</code> jedno ili više, <code>a?</code> nula ili jedno, <code>( )</code> grupiranje</li>
+        <li><code>[a-z0-9_]</code> klasa znakova, <code>[^0-9]</code> komplement klase, <code>.</code> bilo koji znak osim novog retka, <code>\d</code> <code>\w</code> <code>\s</code> kratice</li>
+        <li><code>\e</code> ili <code>ε</code> prazan niz; prazna alternativa (<code>a|</code>, <code>(|a)</code>, <code>()</code>) također je ε</li>
+        <li><code>\</code> ukida posebno značenje: <code>\*</code> <code>\(</code> <code>\.</code> <code>\|</code> <code>\\</code>; <code>\n</code> <code>\t</code> novi redak i tab. Razmak je običan znak.</li>
+      </ul>
+    </details>
+  </div>
+
+  <section class="panel" id="c1" aria-labelledby="c1h">
+    <h2 id="c1h">1 · ε-NKA — Thompsonova konstrukcija</h2>
+    <div class="row ctl" data-for="c1"></div>
+    <div class="regline" id="c1re"></div>
+    <div class="stepbox" id="c1txt" aria-live="polite"></div>
+    <div class="gwrap" id="c1g"></div>
+    <p class="legend" id="c1info"></p>
+  </section>
+
+  <section class="panel" id="c2" aria-labelledby="c2h">
+    <h2 id="c2h">2 · DKA — konstrukcija podskupova</h2>
+    <div class="row ctl" data-for="c2"></div>
+    <div class="stepbox" id="c2txt" aria-live="polite"></div>
+    <div class="tblwrap" id="c2tbl"></div>
+    <div class="gwrap" id="c2g"></div>
+    <p class="legend" id="c2info"></p>
+  </section>
+
+  <section class="panel" id="c3" aria-labelledby="c3h">
+    <h2 id="c3h">3 · Simulacija nad ulaznim nizom</h2>
+    <label for="str">Ulazni niz</label>
+    <div class="row" style="gap:8px">
+      <input type="text" id="str" value="babb" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:160px">
+      <button class="btn" id="sacc" type="button">Prihvaćen primjer</button>
+      <button class="btn" id="srej" type="button">Odbačen primjer</button>
+    </div>
+    <div class="row ctl" data-for="c3"></div>
+    <div class="strip" id="c3strip" aria-label="Ulazni niz"></div>
+    <div class="stepbox" id="c3txt" aria-live="polite"></div>
+    <div id="c3ver" style="margin:6px 0"></div>
+    <h3>ε-NKA — aktivna stanja <span id="c3nset" class="mono"></span></h3>
+    <div class="gwrap" id="c3gn"></div>
+    <h3>DKA — trenutno stanje <span id="c3dset" class="mono"></span></h3>
+    <div class="gwrap" id="c3gd"></div>
+    <p class="legend">Istaknuta (žuta) stanja su aktivna u trenutnom koraku. Stanje ∅ (zamka DKA) nije nacrtano: ako u nekom koraku nema prijelaza, niz je odbačen.</p>
+  </section>
+
+  <p class="footer"><a href="../../index.html">← sve simulacije</a></p>
+</div>
+
+<script src="../../assets/regex.js"></script>
+<script>
+(function () {
+  'use strict';
+  var RX = window.PPJ_Regex;
+  var esc = RX.escXml, fmt = RX.fmtSet, vis = RX.vis;
+  function $(id) { return document.getElementById(id); }
+  function q(ch) { return '<code>' + esc(vis(ch)) + '</code>'; }
+
+  var EXAMPLES = [
+    { name: 'Identifikator', re: '[a-zA-Z][a-zA-Z0-9]*', s: 'x1y2' },
+    { name: 'Cijeli broj', re: '(\\+|-)?[0-9]+', s: '-120' },
+    { name: 'Decimalni broj', re: '[0-9]+(\\.[0-9]+)?', s: '3.14' },
+    { name: '(a|b)*abb', re: '(a|b)*abb', s: 'babb' },
+    { name: 'a*b|a', re: 'a*b|a', s: 'aab' },
+    { name: 'Ključne riječi', re: 'ako|onda|inace', s: 'onda' },
+    { name: 'Prazna alternativa', re: 'a(b|\\e)c*', s: 'ac' }
+  ];
+
+  /* ------------------------------------------------ upravljanje koracima (Korak / Natrag / Reset / Auto-play) */
+  function Stepper(key, onChange, delay) {
+    var host = document.querySelector('.ctl[data-for="' + key + '"]');
+    host.innerHTML =
+      '<button class="btn" type="button" data-a="reset">⏮ Reset</button>' +
+      '<button class="btn" type="button" data-a="back">◀ Natrag</button>' +
+      '<button class="btn primary" type="button" data-a="next">Korak ▶</button>' +
+      '<button class="btn" type="button" data-a="play">▶ Auto-play</button>' +
+      '<button class="btn" type="button" data-a="end">Do kraja ⏭</button>' +
+      '<span class="badge" data-a="cnt" aria-live="polite"></span>';
+    var st = { i: 0, max: 0, timer: null };
+    var btn = {};
+    Array.prototype.forEach.call(host.querySelectorAll('[data-a]'), function (b) { btn[b.getAttribute('data-a')] = b; });
+    function stop() { if (st.timer) { clearInterval(st.timer); st.timer = null; btn.play.textContent = '▶ Auto-play'; } }
+    function refresh() {
+      btn.reset.disabled = btn.back.disabled = st.i <= 0;
+      btn.next.disabled = btn.end.disabled = st.i >= st.max;
+      btn.cnt.textContent = 'Korak ' + st.i + ' / ' + st.max;
+      onChange(st.i);
+    }
+    function go(v) { st.i = Math.max(0, Math.min(st.max, v)); refresh(); }
+    btn.reset.onclick = function () { stop(); go(0); };
+    btn.back.onclick = function () { stop(); go(st.i - 1); };
+    btn.next.onclick = function () { stop(); go(st.i + 1); };
+    btn.end.onclick = function () { stop(); go(st.max); };
+    btn.play.onclick = function () {
+      if (st.timer) { stop(); return; }
+      if (st.i >= st.max) go(0);
+      btn.play.textContent = '⏸ Pauza';
+      st.timer = setInterval(function () { if (st.i >= st.max) { stop(); return; } go(st.i + 1); if (st.i >= st.max) stop(); }, delay || 950);
+    };
+    return { set: function (max, at) { stop(); st.max = max; go(at == null ? max : at); }, stop: stop, get: function () { return st.i; } };
+  }
+
+  /* ------------------------------------------------ model */
+  var M = null;   // {src, chars, res, dfa}
+  var trace = null;
+
+  function svgInto(el, scene, id, label, o) {
+    el.innerHTML = RX.renderScene(scene, { id: id, label: label, minWidth: o && o.minWidth });
+    // na uskim zaslonima graf se pomiče vodoravno: dovedi istaknuta stanja u vidljivo područje
+    try {
+      var act = el.querySelectorAll('circle.node.active');
+      if (act.length && el.scrollWidth > el.clientWidth + 2) {
+        var er = el.getBoundingClientRect(), sum = 0;
+        Array.prototype.forEach.call(act, function (c) { var r = c.getBoundingClientRect(); sum += r.left + r.width / 2 - er.left + el.scrollLeft; });
+        el.scrollLeft = Math.max(0, sum / act.length - el.clientWidth / 2);
+      } else el.scrollLeft = 0;
+    } catch (e) { /* nije kritično */ }
+  }
+
+  /* ---- kartica 1 */
+  function describeFrag(f, res) {
+    var t = f.node.text === '' ? 'ε' : f.node.text, tx = '<code>' + esc(vis(t)) + '</code>', k = f.kids, i;
+    switch (f.kind) {
+      case 'set':
+        var st0 = f.node.set, single = st0.length === 1 && st0[0][0] === st0[0][1];
+        return (single ? 'Znak ' : 'Klasa znakova ') + tx + ': nova stanja <b>' + f.s + '</b> i <b>' + f.f + '</b> povezana prijelazom označenim ' +
+          (single ? 'tim znakom' : 'bilo kojim znakom iz klase') + '. Svaki dio automata ima točno jedno početno i jedno prihvatljivo stanje.';
+      case 'eps':
+        return 'Prazan niz ε: stanja <b>' + f.s + '</b> i <b>' + f.f + '</b> povezana ε-prijelazom.';
+      case 'cat':
+        var links = [];
+        for (i = 0; i + 1 < k.length; i++) links.push('<b>' + k[i].f + '</b> → <b>' + k[i + 1].s + '</b>');
+        return 'Ulančavanje ' + tx + ': prihvatljivo stanje svakog dijela povezuje se ε-prijelazom s početnim stanjem sljedećeg (' + links.join(', ') +
+          '). Početno stanje je <b>' + f.s + '</b>, prihvatljivo <b>' + f.f + '</b>.';
+      case 'alt':
+        return 'Unija ' + tx + ': novo početno stanje <b>' + f.s + '</b> ima ε-prijelaze u početna stanja svih alternativa (' +
+          k.map(function (c) { return '<b>' + c.s + '</b>'; }).join(', ') + '), a njihova prihvatljiva stanja (' +
+          k.map(function (c) { return '<b>' + c.f + '</b>'; }).join(', ') + ') ε-prijelazima vode u novo prihvatljivo stanje <b>' + f.f + '</b>.';
+      case 'star':
+        return 'Kleeneovo zatvorenje ' + tx + ': novi <b>' + f.s + '</b> i <b>' + f.f + '</b>; ε-prijelazi ' + f.s + ' → ' + k[0].s + ' (ulaz), ' + k[0].f + ' → ' + f.f +
+          ' (izlaz), povratni ' + k[0].f + ' → ' + k[0].s + ' (ponavljanje) i ' + f.s + ' → ' + f.f + ' (nula ponavljanja).';
+      case 'plus':
+        return 'Jedno ili više ' + tx + ': novi <b>' + f.s + '</b> i <b>' + f.f + '</b>; ε-prijelazi ' + f.s + ' → ' + k[0].s + ', ' + k[0].f + ' → ' + f.f +
+          ' i povratni ' + k[0].f + ' → ' + k[0].s + ' (ponavljanje). Nema preskakanja, pa je potrebno barem jedno pojavljivanje.';
+      case 'opt':
+        return 'Nula ili jedno ' + tx + ': novi <b>' + f.s + '</b> i <b>' + f.f + '</b>; ε-prijelazi ' + f.s + ' → ' + k[0].s + ', ' + k[0].f + ' → ' + f.f +
+          ' i premosnica ' + f.s + ' → ' + f.f + ' (izostavljanje podizraza). Nema povratnog prijelaza.';
+    }
+    return '';
+  }
+  function renderC1(k) {
+    if (!M) return;
+    var res = M.res, N = res.order.length, cur = k > 0 ? res.order[k - 1] : null, ch = M.chars;
+    var html;
+    if (cur) {
+      var a = cur.node.a, b = cur.node.b;
+      html = esc(ch.slice(0, a).join('')) + '<mark class="hl">' + (a === b ? 'ε' : esc(ch.slice(a, b).join(''))) + '</mark>' + esc(ch.slice(b).join(''));
+    } else html = esc(M.src);
+    $('c1re').innerHTML = html;
+    if (!cur) $('c1txt').innerHTML = '<b>Korak 0:</b> izraz je rastavljen na ' + N + ' podizraza. Svaki Korak gradi dio automata za jedan podizraz — od najmanjih (znakovi) prema cijelom izrazu. Dijelovi koji još nisu spojeni prikazani su jedan ispod drugog.';
+    else $('c1txt').innerHTML = '<b>Korak ' + k + ' / ' + N + ':</b> ' + describeFrag(cur, res);
+    if (k === 0) $('c1g').innerHTML = '<div class="empty">Automat je još prazan — pritisni „Korak“.</div>';
+    else svgInto($('c1g'), RX.buildStepScene(res, k), 'g1', 'ε-NKA, korak ' + k);
+    var nfa = res.nfa;
+    $('c1info').textContent = k === N
+      ? 'Gotovo: ε-NKA ima ' + nfa.n + ' stanja (0 do ' + (nfa.n - 1) + '), početno stanje ' + nfa.start + ', prihvatljivo stanje ' + nfa.accept + ' (podebljano, dvostruki krug) i ' + nfa.edges.length + ' prijelaza. Žuto = ono što je dodano u ovom koraku.'
+      : 'Žuto = stanja i prijelazi dodani u ovom koraku. Dvostruki krug = prihvatljivo stanje dijela, strelica ulijevo = njegovo početno stanje. ε = prijelaz bez čitanja znaka.';
+  }
+
+  /* ---- kartica 2 */
+  function dName(i) { return 'D' + i; }
+  function renderC2(k) {
+    if (!M) return;
+    var dfa = M.dfa, steps = dfa.steps, nA = dfa.atoms.length, cur = k > 0 ? steps[k - 1] : null, i, a;
+    var maxDisc = -1, filled = {};
+    for (i = 0; i < k; i++) {
+      if (steps[i].to > maxDisc) maxDisc = steps[i].to;
+      if (steps[i].type === 'trans') filled[steps[i].from + ':' + steps[i].atom] = true;
+    }
+    var h = '<table class="t"><thead><tr><th>DKA stanje</th><th>Skup stanja ε-NKA</th>';
+    dfa.atoms.forEach(function (at) { h += '<th>δ′(·, ' + esc(at.label) + ')</th>'; });
+    h += '</tr></thead><tbody>';
+    if (maxDisc < 0) h += '<tr><td colspan="' + (2 + nA) + '" class="muted">Još nema stanja — pritisni „Korak“.</td></tr>';
+    for (i = 0; i <= maxDisc; i++) {
+      var s = dfa.states[i], proc = cur && cur.type === 'trans' && cur.from === i;
+      h += '<tr' + (proc ? ' class="proc"' : '') + '><td class="state">' + (i === 0 ? '→ ' : '') + '<b>' + dName(i) + '</b>' + (s.accepting ? ' <span class="ok" title="prihvatljivo stanje: skup sadrži prihvatljivo stanje ε-NKA">✓</span>' : '') + '</td>' +
+        '<td' + (cur && cur.type === 'init' && i === 0 ? ' class="cur"' : '') + '>' + esc(fmt(s.set)) + '</td>';
+      for (a = 0; a < nA; a++) {
+        var isCur = cur && cur.type === 'trans' && cur.from === i && cur.atom === a, txt;
+        if (filled[i + ':' + a]) { var to = dfa.trans[i][a]; txt = to < 0 ? '∅' : dName(to); h += '<td' + (isCur ? ' class="cur"' : (to < 0 ? ' class="todo"' : '')) + '>' + txt + '</td>'; }
+        else h += '<td class="todo">…</td>';
+      }
+      h += '</tr>';
+    }
+    h += '</tbody></table>';
+    $('c2tbl').innerHTML = h;
+
+    var text;
+    if (!cur) text = '<b>Korak 0:</b> konstrukcija podskupova — stanja DKA su skupovi stanja ε-NKA. Počinje se ε-okruženjem početnog stanja; zatim se za svako stanje DKA i svaki znak (klasu znakova) računa <code>ε-okruženje(δ(skup, znak))</code>. Novi skupovi postaju nova stanja DKA.';
+    else if (cur.type === 'init') text = '<b>Korak 1 / ' + steps.length + ':</b> početno stanje DKA je ε-okruženje početnog stanja ε-NKA: ε-okruženje({' + dfa.nfa.start + '}) = <b>' + esc(fmt(cur.closure)) + '</b> → stanje <b>D0</b>.';
+    else {
+      var from = dfa.states[cur.from], at = dfa.atoms[cur.atom];
+      text = '<b>Korak ' + k + ' / ' + steps.length + ':</b> obrađujem <b>' + dName(cur.from) + '</b> = ' + esc(fmt(from.set)) + ' za znak <code>' + esc(at.label) + '</code>. δ(' + esc(fmt(from.set)) + ', ' + esc(at.label) + ') = ' + esc(fmt(cur.moved));
+      if (cur.to < 0) text += ' → nema prijelaza (DKA ide u zamku ∅).';
+      else text += '; ε-okruženje(' + esc(fmt(cur.moved)) + ') = ' + esc(fmt(cur.closure)) + ' → ' + (cur.isNew ? 'novi skup, dobiva ime <b>' + dName(cur.to) + '</b>.' : 'taj skup već postoji kao <b>' + dName(cur.to) + '</b>.');
+    }
+    if (k === steps.length) {
+      var acc = [];
+      dfa.states.forEach(function (st, ix) { if (st.accepting) acc.push(dName(ix)); });
+      text += '<br><b>Gotovo:</b> nema više neobrađenih stanja. DKA ima ' + dfa.states.length + ' stanja; prihvatljiva su ' + (acc.length ? acc.join(', ') : '(nijedno)') + ' (skupovi koji sadrže prihvatljivo stanje ' + dfa.nfa.accept + ' ε-NKA).';
+    }
+    $('c2txt').innerHTML = text;
+    if (k === 0) $('c2g').innerHTML = '<div class="empty">Graf DKA se gradi zajedno s tablicom.</div>';
+    else svgInto($('c2g'), RX.dfaScene(dfa, { step: k, current: cur && cur.type === 'trans' ? cur.from : 0, hiEdge: true }), 'g2', 'DKA, korak ' + k);
+    $('c2info').textContent = 'Žuto stanje = stanje koje se trenutno obrađuje, istaknuti prijelaz = upravo izračunat. ✓ = prihvatljivo stanje DKA. Stupci su klase znakova koje se razlikuju u ε-NKA; znak izvan svih klasa vodi u ∅.';
+  }
+
+  /* ---- kartica 3 */
+  var rendering3 = null;
+  function recompute3() {
+    if (!M) return;
+    var s = $('str').value;
+    trace = { str: s, chars: Array.from(s), nfa: RX.runNFA(M.res.nfa, s), dfa: RX.runDFA(M.dfa, s) };
+  }
+  function renderC3(k) {
+    if (!M || !trace) return;
+    var chars = trace.chars, n = chars.length, nfa = M.res.nfa, i;
+    var strip = '';
+    if (!n) strip = '<span class="end">(prazan niz ε)</span>';
+    for (i = 0; i < n; i++) strip += '<span class="c ' + (i < k - 1 ? 'done' : i === k - 1 ? 'cur' : i === k ? 'next' : '') + '">' + esc(vis(chars[i])) + '</span>';
+    if (n) strip += '<span class="end">⊣</span>';
+    $('c3strip').innerHTML = strip;
+
+    var nt = trace.nfa.trace[k], dt = trace.dfa.trace[k], R = nt.R, hasAcc = R.indexOf(nfa.accept) >= 0;
+    var dead = dt.q < 0;
+    var text;
+    if (k === 0) {
+      text = '<b>Korak 0:</b> prije čitanja znakova. ε-NKA: R = ε-okruženje({' + nfa.start + '}) = <b>' + esc(fmt(R)) + '</b>. DKA je u početnom stanju <b>D0</b> = ' + esc(fmt(M.dfa.states[0].set)) + '.';
+    } else {
+      var prev = trace.nfa.trace[k - 1], pd = trace.dfa.trace[k - 1], ch = chars[k - 1];
+      text = '<b>Korak ' + k + ' / ' + n + ':</b> pročitan znak ' + q(ch) + '. ε-NKA: R = ε-okruženje(δ(' + esc(fmt(prev.R)) + ', ' + esc(vis(ch)) + ')) = <b>' + esc(fmt(R)) + '</b>. ';
+      if (pd.q < 0) text += 'DKA je već u zamci ∅ i ostaje u njoj.';
+      else if (dead) text += 'DKA: δ′(' + dName(pd.q) + ', ' + esc(vis(ch)) + ') nije definiran → zamka <b>∅</b>.';
+      else text += 'DKA: δ′(' + dName(pd.q) + ', ' + esc(vis(ch)) + ') = <b>' + dName(dt.q) + '</b>.';
+    }
+    $('c3txt').innerHTML = text;
+
+    var ver;
+    if (k < n) ver = '<span class="badge">još ' + (n - k) + ' znak' + ((n - k) === 1 ? '' : 'ova') + ' za pročitati</span> <span class="muted small">Da niz završi ovdje, bio bi ' + (hasAcc ? '<span class="ok">prihvaćen</span>' : '<span class="err">odbačen</span>') + '.</span>';
+    else {
+      var accN = trace.nfa.accepts, accD = trace.dfa.accepts;
+      ver = '<span class="badge verdict ' + (accN ? 'ok' : 'err') + '">' + (accN ? 'PRIHVAĆA' : 'ODBACUJE') + '</span> <span class="muted small">' +
+        (accN ? 'R sadrži prihvatljivo stanje ' + nfa.accept + '; DKA je u prihvatljivom stanju ' + (dt.q >= 0 ? dName(dt.q) : '') + '.' :
+          (R.length ? 'R ne sadrži prihvatljivo stanje ' + nfa.accept + '.' : 'Nema aktivnih stanja — niz nije u jeziku.')) +
+        (accN === accD ? ' ε-NKA i DKA se slažu ✓' : ' <span class="err">ε-NKA i DKA se ne slažu!</span>') + '</span>';
+    }
+    $('c3ver').innerHTML = ver;
+
+    $('c3nset').textContent = 'R = ' + fmt(R);
+    $('c3dset').textContent = dead ? '= ∅ (zamka)' : dName(dt.q) + ' = ' + fmt(M.dfa.states[dt.q].set);
+    svgInto($('c3gn'), RX.nfaScene(M.res, { active: new Set(R) }), 'g3', 'ε-NKA, aktivna stanja ' + fmt(R));
+    svgInto($('c3gd'), RX.dfaScene(M.dfa, { current: dead ? -1 : dt.q }), 'g4', 'DKA, trenutno stanje ' + (dead ? 'zamka' : dName(dt.q)));
+  }
+
+  /* ------------------------------------------------ povezivanje */
+  var s1 = Stepper('c1', renderC1, 1100), s2 = Stepper('c2', renderC2, 1100), s3 = Stepper('c3', renderC3, 1000);
+
+  function rebuild() {
+    var src = $('re').value, err = $('reerr');
+    var model;
+    try {
+      var p = RX.parse(src), res = RX.thompson(p.ast), dfa = RX.buildDFA(res.nfa);
+      model = { src: src, chars: p.chars, res: res, dfa: dfa };
+    } catch (e) {
+      if (!e || e.name !== 'RegexError') throw e;
+      err.textContent = '⚠ ' + e.message;
+      ['c1', 'c2', 'c3'].forEach(function (id) { $(id).classList.add('stale'); });
+      s1.stop(); s2.stop(); s3.stop();
+      return;
+    }
+    err.textContent = '';
+    ['c1', 'c2', 'c3'].forEach(function (id) { $(id).classList.remove('stale'); });
+    M = model;
+    recompute3();
+    s1.set(M.res.order.length);
+    s2.set(M.dfa.steps.length);
+    s3.set(trace.chars.length, 0);
+    saveHash();
+  }
+  function onString() {
+    recompute3();
+    if (M) s3.set(trace.chars.length, 0);
+    saveHash();
+  }
+  function saveHash() {
+    try { history.replaceState(null, '', '#re=' + encodeURIComponent($('re').value) + '&s=' + encodeURIComponent($('str').value)); } catch (e) { /* file:// i sl. */ }
+  }
+  function loadHash() {
+    var h = location.hash.replace(/^#/, ''), ok = false;
+    if (!h) return;
+    h.split('&').forEach(function (kv) {
+      var i = kv.indexOf('='), k = kv.slice(0, i), v = kv.slice(i + 1);
+      try { v = decodeURIComponent(v); } catch (e) { return; }
+      if (k === 're') { $('re').value = v; ok = true; }
+      if (k === 's') $('str').value = v;
+    });
+  }
+
+  var exHost = $('examples');
+  EXAMPLES.forEach(function (ex) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip ex'; b.textContent = ex.name; b.title = ex.re;
+    b.onclick = function () { $('re').value = ex.re; $('str').value = ex.s; rebuild(); };
+    exHost.appendChild(b);
+  });
+  $('re').addEventListener('input', function () { rebuild(); });
+  $('str').addEventListener('input', onString);
+  $('sacc').onclick = function () { if (!M) return; var s = RX.sampleString(M.dfa, true); $('str').value = s == null ? '' : s; onString(); };
+  $('srej').onclick = function () { if (!M) return; var s = RX.sampleString(M.dfa, false); $('str').value = s == null ? '' : s; onString(); };
+
+  loadHash();
+  rebuild();
+})();
+</script>
+</body>
+</html>

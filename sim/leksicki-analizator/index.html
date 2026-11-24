@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leksički analizator — PPJ</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+  .ctrl { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--line); margin: 0 0 8px; }
+  .ctrl .row { gap: 8px; }
+  .ctrl input[type=range] { flex: 1 1 120px; min-width: 90px; accent-color: var(--accent); }
+  .ctrl select { width: auto; font: 13px var(--sans); }
+  .exrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .exrow .btn { padding: 4px 10px; font-size: 13px; }
+  .exrow .btn.on { border-color: var(--accent); background: var(--chip); }
+  textarea#src { min-height: 150px; font-size: 14px; line-height: 1.5; tab-size: 4; }
+  .grid2 > div { min-width: 0; }
+  .panel h2 .sub { font-weight: 400; color: var(--muted); font-size: 13px; }
+  .note { border-left: 4px solid var(--accent); line-height: 1.55; min-height: 3.4em; }
+  .note code, .panel code { font: 13px var(--mono); background: var(--chip); color: var(--chip-ink); padding: 0 4px; border-radius: 4px; }
+  /* izvorni tekst s kazaljkama */
+  pre.srcv { margin: 0; padding: 14px 10px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    font: 14px/2.5 var(--mono); overflow: auto; white-space: pre; max-height: 360px; }
+  .c { position: relative; border-radius: 2px; }
+  .c.tok { background: var(--chip); color: var(--chip-ink); }
+  .c.skp { color: var(--muted); font-style: italic; }
+  .c.bad { color: var(--err); text-decoration: underline wavy; background: color-mix(in srgb, var(--err) 18%, transparent); }
+  .c.cur { background: var(--hl); color: var(--hl-ink); }
+  .c.la { outline: 1px dashed var(--accent); outline-offset: -1px; }
+  .c.nl, .c.tb, .c.eof { color: var(--muted); }
+  .c.tb { display: inline-block; width: 4ch; }
+  .c[data-top]::before { content: attr(data-top); position: absolute; left: 50%; transform: translateX(-50%); bottom: 100%; margin-bottom: 1px;
+    font: 700 9px/1.15 var(--mono); background: var(--ok); color: var(--bg); padding: 0 3px; border-radius: 3px; white-space: nowrap; z-index: 2; }
+  .c[data-bot]::after { content: attr(data-bot); position: absolute; left: 50%; transform: translateX(-50%); top: 100%; margin-top: 1px;
+    font: 700 9px/1.15 var(--mono); background: var(--accent); color: var(--accent-ink); padding: 0 3px; border-radius: 3px; white-space: nowrap; z-index: 2; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend .c { padding: 0 4px; font: 12px var(--mono); }
+  .vars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+  @media (max-width: 560px) { .vars { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .vars div { border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; background: var(--bg); }
+  .vars b { display: block; font: 600 15px var(--mono); }
+  .vars span { font-size: 12px; color: var(--muted); }
+  .scroll { overflow: auto; max-height: 300px; }
+  table.t td.n, table.t th.n { text-align: right; }
+  table.t td.st { text-align: center; width: 3.2em; }
+  .rules td:nth-child(3) { font-size: 12px; }
+  .rules tr.win td { background: var(--hl); color: var(--hl-ink); }
+  .rules tr.dead td { color: var(--muted); }
+  ul.errs { margin: 0; padding-left: 18px; font: 13px var(--mono); }
+  ul.errs li { margin: 3px 0; }
+  details { margin-top: 8px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .small { font-size: 12.5px; }
+  .cap { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+  .tag { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Leksički analizator</h1>
+  <p class="lead">Upišite mali program (ili učitajte primjer iz knjige) i pratite kako leksički analizator znak po znak grupira ulaz u leksičke jedinke, odbacuje bjeline i komentare, puni tablicu znakova i oporavlja se od nedozvoljenih znakova.</p>
+
+  <div class="panel">
+    <div class="exrow" id="exrow"><b class="small">Primjeri:</b></div>
+    <label for="src">Izvorni program (pri izmjeni teksta analiza se vraća na početak)</label>
+    <textarea id="src" spellcheck="false" maxlength="2500" autocomplete="off"></textarea>
+  </div>
+
+  <div class="ctrl">
+    <div class="row">
+      <button class="btn" id="bReset" type="button">⟲ Reset</button>
+      <button class="btn" id="bBack" type="button">◀ Natrag</button>
+      <button class="btn primary" id="bNext" type="button">Korak ▶</button>
+      <button class="btn" id="bPlay" type="button">▶ Auto-play</button>
+      <select id="gran" aria-label="Veličina koraka">
+        <option value="tok">korak = jedna jedinka</option>
+        <option value="char">korak = jedan znak</option>
+      </select>
+      <input type="range" id="scrub" min="-1" max="0" value="-1" aria-label="Položaj u simulaciji">
+      <span class="muted small mono" id="counter"></span>
+    </div>
+  </div>
+
+  <div class="panel note" id="note" aria-live="polite"></div>
+
+  <div class="panel">
+    <h2>Izvorni tekst i kazaljke <span class="sub">(odjeljak 2.9.6, slika 2.21)</span></h2>
+    <pre class="srcv" id="srcv" aria-label="Izvorni tekst s kazaljkama"></pre>
+    <div class="legend" id="legend"></div>
+    <div class="vars" id="vars"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>Leksička pravila <span class="sub">(redoslijed = prioritet)</span></h2>
+      <div class="scroll" style="max-height:none"><table class="t rules" id="rules"></table></div>
+      <p class="cap"><b>P2:</b> ako niz zadovoljava više izraza, vrijedi onaj zapisan prvi (zato je <code>ako</code> ključna riječ, a ne identifikator). <b>P3:</b> traži se najdulji prefiks definiran nekim izrazom (<code>ako123</code> je identifikator). <b>Oporavak:</b> ako ništa ne odgovara, odbacuje se krajnje lijevi znak, ispisuje se pogreška i analiza se nastavlja.</p>
+    </div>
+    <div class="panel">
+      <h2>Leksičke pogreške i oporavak</h2>
+      <div id="errs"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Izlaz: niz leksičkih jedinki <span class="sub">(slika 1.3) i niz uniformnih znakova (slika 2.11)</span></h2>
+    <div class="scroll" id="outwrap"><table class="t" id="out"></table></div>
+    <p class="cap">Izdaje se par <i>(KlasaLeksičkeJedinke, LeksičkaJedinka)</i>. Sintaksnom analizatoru u tablici uniformnih znakova ide uniformni znak (<code>IDN</code>, <code>KON</code> ili <code>KROS</code>) i kazaljka na zapis u odgovarajućoj tablici (pristup II, tablica 2.2). Bjeline i komentari ne izdaju ništa.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>Tablica identifikatora</h2>
+      <div class="scroll"><table class="t" id="tid"></table></div>
+      <p class="cap">Jedan zapis po različitom identifikatoru. <i>Tip</i> je za sada <code>NULL</code>: određuje ga semantička analiza (slika 2.7: popunjava se u ostalim koracima).</p>
+    </div>
+    <div class="panel">
+      <h2>Tablica konstanti</h2>
+      <div class="scroll"><table class="t" id="tco"></table></div>
+      <p class="cap">Jedan zapis po različitoj konstanti, s tipom <code>INTBroj</code> ili <code>FLOATBroj</code> koji se određuje već iz znakova konstante (slika 2.8).</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Što ide u tablicu znakova?</h2>
+    <p style="margin:0 0 6px">Prema odjeljku 2.4 tablicu znakova čine <b>tablica identifikatora</b>, <b>tablica konstanti</b> i <b>nepromjenjiva tablica ključnih riječi, operatora i specijalnih znakova</b> (KROS); uz njih leksički analizator vodi i <b>tablicu uniformnih znakova</b> u redoslijedu iz izvornog programa. Pri svakoj jedinki klase IDN ili konstante pretražuje se pripadna tablica: ako zapis postoji, upisuje se samo kazaljka na njega, inače se stvara novi zapis.</p>
+    <details id="krosd"><summary>Tablica ključnih riječi, operatora i specijalnih znakova (KROS)</summary>
+      <div class="scroll" style="margin-top:8px"><table class="t" id="kros"></table></div>
+      <p class="cap">Brojevi ako=1, onda=2, inače=3, <code>=</code>=50, <code>&gt;</code>=51, <code>;</code>=101, <code>(</code>=102, <code>)</code>=103, <code>{</code>=104, <code>}</code>=105 preuzeti su sa slike 2.11; ostali su dodani za ovu simulaciju.</p>
+    </details>
+  </div>
+
+  <p class="footer"><a href="../../index.html">← sve simulacije</a> · Izvor: S. Srbljić, <i>Prevođenje programskih jezika</i>, poglavlje 2 (odjeljci 2.1–2.9), poglavlje 1.1.</p>
+</div>
+
+<script>
+'use strict';
+/* ================= Leksička pravila (regularni izrazi r1…r7, odjeljak 2.9) ================= */
+const LETTER = c => /\p{L}/u.test(c);
+const DIGIT = c => c >= '0' && c <= '9';
+const KW_LIST = ['ako', 'onda', 'inače', 'inace', 'za', 'dok', 'skoči', 'skoci', 'slučaj', 'slucaj'];
+const KW_CANON = { inace: 'inače', skoci: 'skoči', slucaj: 'slučaj' };
+const SO_LIST = ['(', ')', '{', '}', '[', ']', ';', ',', '=', '==', '!=', '<', '>', '<=', '>=', '+', '-', '*', '/', '!', '&&', '||'];
+
+// Zamjena za tablicu prijelaza DKA: svako pravilo ima mali automat (init, step, accept); stanje null = mrtvo (∅)
+const lit = list => ({
+  init: () => '',
+  step: (s, c) => { const t = s + c; return list.some(x => x.startsWith(t)) ? t : null; },
+  accept: s => list.includes(s)
+});
+const RULES = [
+  { name: 'komentar', cls: null, what: 'komentar', desc: '// … do kraja retka  |  /* … */',
+    init: () => 0,
+    step: (s, c) => {
+      switch (s) {
+        case 0: return c === '/' ? 1 : null;
+        case 1: return c === '/' ? 2 : c === '*' ? 3 : null;
+        case 2: return c === '\n' ? null : 2;
+        case 3: return c === '*' ? 4 : 3;
+        case 4: return c === '/' ? 5 : c === '*' ? 4 : 3;
+        default: return null;
+      }
+    },
+    accept: s => s === 2 || s === 5 },
+  { name: 'bjelina', cls: null, what: 'bjeline', desc: '(razmak | tabulator | novi red)+',
+    init: () => 0, step: (s, c) => /\s/.test(c) ? 1 : null, accept: s => s === 1 },
+  Object.assign({ name: 'KR', cls: 'KR', desc: 'ako | onda | inače | za | dok | skoči | slučaj' }, lit(KW_LIST)),
+  { name: 'FLOAT', cls: 'FLOAT', desc: 'brojka+ . brojka+',
+    init: () => 0,
+    step: (s, c) => s === 0 ? (DIGIT(c) ? 1 : null) : s === 1 ? (DIGIT(c) ? 1 : c === '.' ? 2 : null) : s === 2 ? (DIGIT(c) ? 3 : null) : (DIGIT(c) ? 3 : null),
+    accept: s => s === 3 },
+  { name: 'INT', cls: 'INT', desc: 'brojka+',
+    init: () => 0, step: (s, c) => DIGIT(c) ? 1 : null, accept: s => s === 1 },
+  { name: 'IDN', cls: 'IDN', desc: 'slovo (slovo + brojka)*',
+    init: () => 0, step: (s, c) => s === 0 ? (LETTER(c) ? 1 : null) : (LETTER(c) || DIGIT(c) ? 1 : null), accept: s => s === 1 },
+  Object.assign({ name: 'SO', cls: 'SO', desc: '( ) { } [ ] ; , = == != < > <= >= + - * / ! && ||' }, lit(SO_LIST))
+];
+
+// Nepromjenjiva tablica ključnih riječi, operatora i specijalnih znakova (brojevi sa slike 2.11 + proširenje)
+const KROS_TABLE = [
+  [1, 'ako'], [2, 'onda'], [3, 'inače'], [4, 'za'], [5, 'dok'], [6, 'skoči'], [7, 'slučaj'],
+  [50, '='], [51, '>'], [52, '<'], [53, '+'], [54, '-'], [55, '*'], [56, '/'], [57, '=='], [58, '!='], [59, '<='], [60, '>='], [61, '!'], [62, '&&'], [63, '||'],
+  [101, ';'], [102, '('], [103, ')'], [104, '{'], [105, '}'], [106, '['], [107, ']'], [108, ',']
+];
+const KROS_PTR = {}; KROS_TABLE.forEach(([p, s]) => { KROS_PTR[s] = p; });
+const kwCanon = s => KW_CANON[s] || s;
+
+const vis = s => s.replace(/\n/g, '↵').replace(/\t/g, '⇥').replace(/\r/g, '␍');
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+const code = s => `<code>${esc(vis(s))}</code>`;
+
+/* ================= Simulator leksičkog analizatora ================= */
+// Vraća cijeli slijed događaja (čitanje znaka, odluka) i tablice; prikaz u koraku k čita samo događaje do k.
+function lexTrace(srcIn) {
+  const src = srcIn.normalize('NFC'), n = src.length;
+  const lineStarts = [0]; for (let i = 0; i < n; i++) if (src[i] === '\n') lineStarts.push(i + 1);
+  const lc = pos => { let l = 0; while (l + 1 < lineStarts.length && lineStarts[l + 1] <= pos) l++; return { line: l + 1, col: pos - lineStarts[l] + 1 }; };
+  const T = { src, events: [], tokens: [], ids: [], consts: [], uniform: [], errors: [], skipped: [] };
+  const ev = T.events;
+  let P = 0;
+  while (P < n) {
+    let states = RULES.map(r => r.init());
+    let Z = P - 1, Posl = -1, Izraz = 0, accAtPosl = [];
+    for (;;) {
+      Z++;
+      const ch = Z < n ? src[Z] : null;
+      states = states.map((s, k) => (s === null || ch === null) ? null : RULES[k].step(s, ch));
+      const alive = states.map(s => s !== null);
+      const acc = states.map((s, k) => s !== null && RULES[k].accept(s));
+      if (ch !== null && acc.some(Boolean)) { Posl = Z; Izraz = acc.indexOf(true) + 1; accAtPosl = acc.slice(); }
+      const dead = !alive.some(Boolean);
+      const prefix = src.slice(P, Math.min(Z + 1, n));
+      let msg = `Čitaj(Završetak = ${Z + 1}) → ${ch === null ? '<i>kraj teksta</i>' : code(ch)}. `;
+      if (ch === null) msg += 'Nema više znakova: čitanje se prekida.';
+      else if (dead) msg += `Nijedan izraz ne može nastaviti niz ${code(prefix)}: automat prelazi u stanje ∅ i čitanje se prekida.`;
+      else {
+        const al = alive.map((a, k) => a ? 'r' + (k + 1) : null).filter(Boolean);
+        msg += `Još mogu nastaviti: ${al.join(', ')}. `;
+        msg += acc.some(Boolean)
+          ? `Niz ${code(prefix)} prihvaćaju: ${acc.map((a, k) => a ? 'r' + (k + 1) + ' (' + RULES[k].name + ')' : null).filter(Boolean).join(', ')}; zapisuje se Posljednji = ${Z + 1}, Izraz = r${Izraz} (prvi navedeni izraz, P2).`
+          : 'Pročitani niz još ništa ne prihvaća, čita se dalje.';
+      }
+      ev.push({ t: 'read', P, Z, Posl, Izraz, ch, alive, acc, msg });
+      if (dead) break;
+    }
+    // odluka (korak D5)
+    const base = { P, Z, Posl, Izraz, alive: null, acc: Izraz ? accAtPosl : RULES.map(() => false) };
+    if (Izraz === 0) {
+      const p = lc(P);
+      const e = { ch: src[P], pos: P, line: p.line, col: p.col, ev: ev.length };
+      e.msg = `Redak ${p.line}, stupac ${p.col}: nedozvoljen znak ${vis(src[P])}`;
+      T.errors.push(e);
+      ev.push(Object.assign(base, { t: 'error', msg: `<b>Leksička pogreška.</b> Izraz = 0: nijedan prefiks preostalog niza nije definiran izrazom. Ispiši(Početak): znak ${code(src[P])} (redak ${p.line}, stupac ${p.col}) ispisuje se kao pogreška i odbacuje; Početak = Početak + 1 = ${P + 2}, analiza se nastavlja.` }));
+      P += 1;
+    } else {
+      const lexeme = src.slice(P, Posl + 1), r = RULES[Izraz - 1];
+      const extra = Z - Posl - 1;
+      let tail = extra > 0 ? ` Automat je pročitao još ${extra} znak${extra === 1 ? '' : 'a'} iza nje, ali oni ne daju dulju jedinku: vraća se na Posljednji (najdulji prefiks, P3).` : '';
+      const others = accAtPosl.map((a, k) => a && k + 1 !== Izraz ? 'r' + (k + 1) + ' (' + RULES[k].name + ')' : null).filter(Boolean);
+      if (others.length) tail += ` Niz zadovoljava i ${others.join(', ')}, ali prednost ima r${Izraz} jer je zapisan ranije (P2).`;
+      if (lexeme === '/' && src[P + 1] === '*') tail += ' Komentar nije zatvoren (nedostaje */), pa se / tretira kao operator.';
+      const next = ` Početak = Posljednji + 1 = ${Posl + 2}.`;
+      if (r.cls === null) {
+        const sk = { text: lexeme, kind: r.what, ev: ev.length };
+        T.skipped.push(sk);
+        ev.push(Object.assign(base, { t: 'skip', lexeme, msg: `Izraz = r${Izraz} (${r.name}) ≠ 0: ${r.what === 'komentar' ? 'komentar' : 'bjeline (' + lexeme.length + ' znak' + (lexeme.length === 1 ? '' : 'a') + ')'} ${code(lexeme.length > 40 ? lexeme.slice(0, 40) + '…' : lexeme)} odbacuje se; leksička jedinka se ne izdaje.${tail}${next}` }));
+      } else {
+        const p = lc(P), cls = r.cls, evIx = ev.length;
+        let tab, ptr, isNew = false, tmsg;
+        if (cls === 'IDN') {
+          tab = 'IDN'; let ix = T.ids.findIndex(x => x.name === lexeme);
+          if (ix < 0) { T.ids.push({ name: lexeme, tip: null, ev: evIx, ptr: T.ids.length + 1 }); ix = T.ids.length - 1; isNew = true; }
+          ptr = ix + 1;
+          tmsg = isNew ? `Identifikator se traži u tablici identifikatora, nije pronađen: stvara se <b>novi zapis #${ptr}</b> (Tip = NULL).` : `Identifikator je već u tablici identifikatora (zapis #${ptr}): upisuje se samo kazaljka na postojeći zapis.`;
+        } else if (cls === 'INT' || cls === 'FLOAT') {
+          tab = 'KON'; let ix = T.consts.findIndex(x => x.v === lexeme);
+          const tip = cls === 'INT' ? 'INTBroj' : 'FLOATBroj';
+          if (ix < 0) { T.consts.push({ v: lexeme, tip, ev: evIx, ptr: T.consts.length + 1 }); ix = T.consts.length - 1; isNew = true; }
+          ptr = ix + 1;
+          tmsg = isNew ? `Konstanta se traži u tablici konstanti, nije pronađena: stvara se <b>novi zapis #${ptr}</b> s tipom <code>${tip}</code> (određen iz znakova konstante).` : `Konstanta je već u tablici konstanti (zapis #${ptr}): upisuje se kazaljka na postojeći zapis.`;
+        } else {
+          tab = 'KROS'; ptr = KROS_PTR[kwCanon(lexeme)];
+          tmsg = `${cls === 'KR' ? 'Ključna riječ' : 'Operator ili specijalni znak'} je u nepromjenjivoj tablici KROS na mjestu ${ptr}.` + (kwCanon(lexeme) !== lexeme ? ` (Zapis bez dijakritika prepoznaje se kao ključna riječ ${kwCanon(lexeme)}.)` : '');
+        }
+        const tok = { cls, lex: lexeme, line: p.line, col: p.col, s: P, e: Posl + 1, ev: evIx, tab, ptr, isNew, idx: T.tokens.length };
+        T.tokens.push(tok);
+        ev.push(Object.assign(base, { t: 'emit', lexeme, cls, tab, ptr, isNew, tokIdx: tok.idx,
+          msg: `Izraz = r${Izraz} (${r.name}) ≠ 0: leksička jedinka je niz od Početak = ${P + 1} do Posljednji = ${Posl + 1}, ${code(lexeme)} → <b>(${cls}, ${esc(lexeme)})</b>. ${tmsg} U niz uniformnih znakova ide <b>(${tab}, ${ptr})</b>.${tail}${next}` }));
+      }
+      P = Posl + 1;
+    }
+  }
+  ev.push({ t: 'eof', P: n, Z: n, Posl: -1, Izraz: 0, alive: null, acc: null,
+    msg: `<b>Kraj izvornog programa.</b> Izdano je ${T.tokens.length} leksičkih jedinki, odbačeno ${T.skipped.length} nizova bjelina/komentara, ispisano ${T.errors.length} leksičkih pogrešaka. Niz uniformnih znakova i tablice znakova sada preuzima sintaksni analizator.` });
+  return T;
+}
+
+const isDecision = e => e.t === 'emit' || e.t === 'skip' || e.t === 'error' || e.t === 'eof';
+function decisionIdx(T) { const r = []; T.events.forEach((e, i) => { if (isDecision(e)) r.push(i); }); return r; }
+function nextIdx(T, k, gran) {
+  const last = T.events.length - 1;
+  if (k >= last) return last;
+  if (gran === 'char') return k + 1;
+  for (let i = k + 1; i <= last; i++) if (isDecision(T.events[i])) return i;
+  return last;
+}
+function prevIdx(T, k, gran) {
+  if (k <= -1) return -1;
+  if (gran === 'char') return k - 1;
+  for (let i = k - 1; i >= 0; i--) if (isDecision(T.events[i])) return i;
+  return -1;
+}
+
+// status svakog znaka izvornog teksta u koraku k
+function charStatus(T, k) {
+  const n = T.src.length, st = new Array(n).fill('');
+  for (let i = 0; i <= k && i < T.events.length; i++) {
+    const e = T.events[i];
+    if (e.t === 'emit') for (let j = e.P; j <= e.Posl; j++) st[j] = 'tok';
+    else if (e.t === 'skip') for (let j = e.P; j <= e.Posl; j++) st[j] = 'skp';
+    else if (e.t === 'error') st[e.P] = 'bad';
+  }
+  const e = k >= 0 ? T.events[k] : null;
+  let marks = { P: k < 0 ? 0 : (e.t === 'eof' ? null : e.P), Z: null, L: null };
+  if (e && e.t === 'read') {
+    for (let j = e.P; j <= Math.min(e.Z, n - 1); j++) st[j] = (j <= e.Posl ? 'cur' : 'la');
+    marks.Z = e.Z; if (e.Posl >= 0) marks.L = e.Posl;
+  } else if (e && (e.t === 'emit' || e.t === 'skip')) {
+    for (let j = e.P; j <= e.Posl; j++) st[j] = (e.t === 'emit' ? 'tok cur' : 'skp cur');
+    marks.Z = e.Z; marks.L = e.Posl;
+  } else if (e && e.t === 'error') { st[e.P] = 'bad cur'; marks.Z = e.Z; }
+  return { st, marks };
+}
+
+// sadržaj tablica u koraku k
+function tablesAt(T, k) {
+  const toks = T.tokens.filter(t => t.ev <= k);
+  const idUse = {}, coUse = {};
+  toks.forEach(t => { if (t.tab === 'IDN') idUse[t.ptr] = (idUse[t.ptr] || 0) + 1; if (t.tab === 'KON') coUse[t.ptr] = (coUse[t.ptr] || 0) + 1; });
+  return {
+    toks,
+    ids: T.ids.filter(x => x.ev <= k).map(x => Object.assign({ uses: idUse[x.ptr] || 0 }, x)),
+    consts: T.consts.filter(x => x.ev <= k).map(x => Object.assign({ uses: coUse[x.ptr] || 0 }, x)),
+    errors: T.errors.filter(x => x.ev <= k),
+    usedKros: new Set(toks.filter(t => t.tab === 'KROS').map(t => t.ptr)),
+    lastTok: toks.length && toks[toks.length - 1].ev === k ? toks[toks.length - 1] : null
+  };
+}
+
+/* ================= Primjeri ================= */
+const EXAMPLES = [
+  { name: 'Iz knjige (slika 1.2)', text: 'IzračunajCijenu ()\n{\n    ako (Količina > 20)\n        Cijena = 1000;\n    inače\n        Cijena = 1200;\n    NovaCijena = Cijena;\n}\n' },
+  { name: 'Komentari i konstante', text: '/* izračun popusta */\nCijena = 1000;   // osnovna cijena\nPopust = Cijena * 0.15;\ndok (Popust >= 100.5)\n    Popust = Popust - 12.25;\n' },
+  { name: 'Petlja za', text: 'Zbroj = 0;\nza (i = 0; i <= 10; i = i + 1)\n{\n    Zbroj = Zbroj + i * i;\n}\n' },
+  { name: 'Najdulji prefiks (slika 2.20)', text: 'ako123=3121\nako akol\n12abc 3.14.15 7.\n' },
+  { name: 'Leksičke pogreške', text: 'ako (Cijena >= 1000)\n{\n    Popust = Cijena * 0.1 # 10 posto;\n    Ukupno = Cijena - Popust @;\n    Nova_Cijena = 5 & 2;\n}\n' }
+];
+
+/* ================= Prikaz ================= */
+function srcHTML(T, k) {
+  const { st, marks } = charStatus(T, k);
+  const n = T.src.length; let out = '';
+  for (let i = 0; i <= n; i++) {
+    const ch = i < n ? T.src[i] : null;
+    const cls = ['c', i < n ? st[i] : 'eof'];
+    let top = '', bot = '';
+    if (marks.Z === i) top = 'Z';
+    if (marks.P === i) bot += 'P';
+    if (marks.L === i) bot += (bot ? '+' : '') + 'L';
+    let body;
+    if (ch === null) body = '∎';
+    else if (ch === '\n') { cls.push('nl'); body = '↵'; }
+    else if (ch === '\t') { cls.push('tb'); body = '⇥'; }
+    else body = esc(ch);
+    if (ch === null && !(top || bot)) { out += `<span class="${cls.join(' ')}" title="kraj ulaza">${body}</span>`; continue; }
+    out += `<span class="${cls.join(' ')}"${top ? ` data-top="${top}"` : ''}${bot ? ` data-bot="${bot}"` : ''}>${body}</span>` + (ch === '\n' ? '\n' : '');
+  }
+  return out;
+}
+function varsHTML(T, k) {
+  const e = k >= 0 ? T.events[k] : null;
+  const P = e ? (e.t === 'eof' ? '—' : e.P + 1) : 1;
+  const Z = e && e.t !== 'eof' ? e.Z + 1 : 0;
+  const L = e && e.Posl >= 0 ? e.Posl + 1 : '—';
+  const I = e && e.Izraz ? `r${e.Izraz} (${RULES[e.Izraz - 1].name})` : '0';
+  const cell = (n, v, d) => `<div><span>${n}</span><b>${v}</b><span>${d}</span></div>`;
+  return cell('Početak', P, 'početak neanalizirana dijela') + cell('Završetak', Z, 'zadnji pročitani znak') + cell('Posljednji', L, 'kraj najduljeg prihvaćenog prefiksa') + cell('Izraz', I, 'izraz tog prefiksa');
+}
+function rulesHTML(T, k) {
+  const e = k >= 0 ? T.events[k] : null;
+  let h = '<tr><th>Izraz</th><th>Klasa</th><th>Pravilo</th><th class="st">Stanje</th></tr>';
+  RULES.forEach((r, i) => {
+    let s = '', c = '';
+    if (e && !e.alive && e.acc) { s = e.acc[i] ? '✓' : '–'; if (e.Izraz === i + 1) c = 'win'; }
+    else if (e && e.alive) {
+      if (e.acc[i]) { s = '✓'; if (e.Izraz === i + 1) c = 'win'; }
+      else if (e.alive[i]) s = '…';
+      else { s = '∅'; c = 'dead'; }
+    }
+    h += `<tr class="${c}"><td>r${i + 1}</td><td>${r.cls || 'odbaci'}</td><td class="mono">${esc(r.desc)}</td><td class="st" title="✓ prihvaća, … može nastaviti, ∅ mrtvo">${s}</td></tr>`;
+  });
+  return h;
+}
+function outHTML(T, k) {
+  const V = tablesAt(T, k);
+  let h = '<tr><th class="n">#</th><th>(Klasa, Jedinka)</th><th>Redak:stup.</th><th>Uniformni znak</th><th class="n">Kazaljka</th></tr>';
+  V.toks.forEach((t, i) => {
+    const last = V.lastTok === t;
+    h += `<tr class="${last ? 'hl' : ''}"><td class="n">${i + 1}</td><td>(${t.cls}, ${esc(t.lex)})</td><td>${t.line}:${t.col}</td><td>${t.tab}</td><td class="n">${t.ptr}</td></tr>`;
+  });
+  if (!V.toks.length) h += '<tr><td colspan="5" class="muted">— još nema izdanih jedinki —</td></tr>';
+  return h;
+}
+function idHTML(T, k) {
+  const V = tablesAt(T, k), ev = k >= 0 ? T.events[k] : null;
+  let h = '<tr><th class="n">#</th><th>Identifikator</th><th>Tip</th><th class="n">Pojavljivanja</th></tr>';
+  V.ids.forEach(x => { h += `<tr class="${ev && V.lastTok && V.lastTok.tab === 'IDN' && V.lastTok.ptr === x.ptr ? 'hl' : ''}"><td class="n">${x.ptr}</td><td>${esc(x.name)}</td><td>NULL</td><td class="n">${x.uses}</td></tr>`; });
+  if (!V.ids.length) h += '<tr><td colspan="4" class="muted">—</td></tr>';
+  return h;
+}
+function coHTML(T, k) {
+  const V = tablesAt(T, k);
+  let h = '<tr><th class="n">#</th><th>Konstanta</th><th>Tip</th><th class="n">Pojavljivanja</th></tr>';
+  V.consts.forEach(x => { h += `<tr class="${V.lastTok && V.lastTok.tab === 'KON' && V.lastTok.ptr === x.ptr ? 'hl' : ''}"><td class="n">${x.ptr}</td><td>${esc(x.v)}</td><td>${x.tip}</td><td class="n">${x.uses}</td></tr>`; });
+  if (!V.consts.length) h += '<tr><td colspan="4" class="muted">—</td></tr>';
+  return h;
+}
+function errsHTML(T, k) {
+  const V = tablesAt(T, k);
+  if (!V.errors.length) return '<p class="ok" style="margin:0">Nema leksičkih pogrešaka.</p>';
+  return `<ul class="errs err">${V.errors.map(e => `<li>${esc(e.msg)} → odbačen, analiza nastavlja s idućim znakom</li>`).join('')}</ul>`;
+}
+function krosHTML(T, k) {
+  const V = tablesAt(T, k);
+  let h = '<tr><th class="n">Kazaljka</th><th>Jedinka</th><th>Klasa</th></tr>';
+  KROS_TABLE.forEach(([p, s]) => { h += `<tr class="${V.usedKros.has(p) ? 'hl' : ''}"><td class="n">${p}</td><td>${esc(s)}</td><td>${p < 50 ? 'KR' : 'SO'}</td></tr>`; });
+  return h;
+}
+const INTRO = 'Leksički analizator čita cijeli izvorni program i u svakom pokušaju traži <b>najdulji prefiks</b> preostalog teksta koji zadovoljava neko od pravila r1–r7 (odjeljak 2.9). Kazaljke: <code>P</code> = Početak, <code>Z</code> = Završetak (zadnji pročitani znak), <code>L</code> = Posljednji (kraj najduljeg prihvaćenog prefiksa). Kad nijedno pravilo ne može nastaviti, jedinka je niz od P do L (klasu daje izraz s najmanjim brojem). Pritisnite <b>Korak</b>.';
+
+/* ================= UI ================= */
+if (typeof document !== 'undefined') (function () {
+  const $ = id => document.getElementById(id);
+  let T = lexTrace(''), k = -1, timer = null, gran = 'tok', exOn = -1;
+
+  $('exrow').insertAdjacentHTML('beforeend', EXAMPLES.map((e, i) => `<button type="button" class="btn" data-ex="${i}">${esc(e.name)}</button>`).join(''));
+  $('legend').innerHTML =
+    '<span><span class="c cur">abc</span> najdulji prihvaćeni prefiks</span><span><span class="c la">abc</span> pročitano dalje</span>' +
+    '<span><span class="c tok">abc</span> izdana jedinka</span><span><span class="c skp">abc</span> odbačeno</span><span><span class="c bad">abc</span> pogreška</span>' +
+    '<span><span class="tag">P</span> Početak <span class="tag">Z</span> Završetak <span class="tag">L</span> Posljednji</span>';
+  $('krosd').addEventListener('toggle', () => { $('kros').innerHTML = krosHTML(T, k); });
+
+  function stop() { if (timer) { clearInterval(timer); timer = null; $('bPlay').textContent = '▶ Auto-play'; } }
+  function load(text) {
+    stop(); T = lexTrace(text); k = -1; render();
+  }
+  function render() {
+    const e = k >= 0 ? T.events[k] : null;
+    $('note').innerHTML = e ? e.msg : (T.src.trim() ? INTRO : 'Upišite izvorni program ili odaberite primjer.');
+    $('srcv').innerHTML = srcHTML(T, k);
+    $('vars').innerHTML = varsHTML(T, k);
+    $('rules').innerHTML = rulesHTML(T, k);
+    $('out').innerHTML = outHTML(T, k);
+    $('tid').innerHTML = idHTML(T, k);
+    $('tco').innerHTML = coHTML(T, k);
+    $('errs').innerHTML = errsHTML(T, k);
+    if ($('krosd').open) $('kros').innerHTML = krosHTML(T, k);
+    const last = T.events.length - 1;
+    $('counter').textContent = `događaj ${k + 1} / ${last + 1}`;
+    const sc = $('scrub'); sc.max = last; sc.value = k;
+    $('bBack').disabled = k <= -1; $('bNext').disabled = k >= last;
+    const ow = $('outwrap'); ow.scrollTop = ow.scrollHeight;
+    const cur = document.querySelector('#srcv .cur, #srcv .la, #srcv .bad');
+    const sv = $('srcv');
+    if (cur) { const r = cur.getBoundingClientRect(), b = sv.getBoundingClientRect(); if (r.bottom > b.bottom - 20 || r.top < b.top + 10) sv.scrollTop += r.top - b.top - b.height / 2; if (r.right > b.right - 20 || r.left < b.left + 10) sv.scrollLeft += r.left - b.left - b.width / 2; }
+    if (k >= last) stop();
+  }
+  const go = i => { k = Math.max(-1, Math.min(T.events.length - 1, i)); render(); };
+  $('bNext').onclick = () => { stop(); go(nextIdx(T, k, gran)); };
+  $('bBack').onclick = () => { stop(); go(prevIdx(T, k, gran)); };
+  $('bReset').onclick = () => { stop(); go(-1); };
+  $('gran').onchange = e => { gran = e.target.value; stop(); };
+  $('scrub').oninput = e => { stop(); go(+e.target.value); };
+  $('bPlay').onclick = () => {
+    if (timer) { stop(); return; }
+    if (k >= T.events.length - 1) k = -1;
+    $('bPlay').textContent = '⏸ Pauza';
+    timer = setInterval(() => { if (k < T.events.length - 1) go(nextIdx(T, k, gran)); else stop(); }, gran === 'char' ? 450 : 900);
+  };
+  $('exrow').onclick = e => {
+    const b = e.target.closest('[data-ex]'); if (!b) return;
+    $('src').value = EXAMPLES[+b.dataset.ex].text; load($('src').value);
+    document.querySelectorAll('#exrow .btn').forEach(x => x.classList.toggle('on', x === b));
+  };
+  $('src').addEventListener('input', () => { document.querySelectorAll('#exrow .btn').forEach(x => x.classList.remove('on')); load($('src').value); });
+  document.addEventListener('keydown', e => {
+    const tg = document.activeElement && document.activeElement.tagName;
+    if (tg === 'TEXTAREA' || tg === 'SELECT') return;
+    if (e.key === 'ArrowRight') { stop(); go(nextIdx(T, k, gran)); }
+    else if (e.key === 'ArrowLeft') { stop(); go(prevIdx(T, k, gran)); }
+  });
+  $('src').value = EXAMPLES[0].text; document.querySelector('#exrow .btn').classList.add('on'); load($('src').value);
+})();
+</script>
+</body>
+</html>
