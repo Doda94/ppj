@@ -15,7 +15,16 @@
   .in-embed p.lead, .in-embed .footer { display: none; }
   .in-embed .popout { display: inline-flex; align-items: center; padding: 4px 10px; font-size: 12.5px; }
   .in-embed .panel { padding: 10px 12px; margin: 8px 0; }
-  .in-embed h2 { font-size: 15px; margin-bottom: 6px; }
+  .in-embed h2 { font-size: 14.5px; margin-bottom: 6px; }
+  @media (min-width: 660px) {
+    .in-embed .embed-grid { display: grid; grid-template-columns: 265px 1fr; gap: 10px; align-items: start; }
+    .in-embed .embed-grid > .panel { margin: 0; min-width: 0; }
+    .in-embed .grid2 { grid-template-columns: 1fr; gap: 6px; }
+    .in-embed #nfaGraph svg { max-height: 130px; width: 100%; height: auto; }
+    .in-embed table.t input.cell-in { min-width: 54px; padding: 4px 6px; font-size: 13px; }
+    .in-embed table.t input.cell-in.set-in { min-width: 102px; }
+    .in-embed table.t select.cell-sel { padding: 4px 5px; font-size: 13px; }
+  }
   .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--sans); font-size: 13px; padding: 3px 10px; }
   .ex:hover, .ex.sel { border-color: var(--accent); }
   .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -57,6 +66,7 @@
   </div>
   <p class="lead">Na temelju zadanog ε-NKA popuni tablicu prijelaza DKA ćeliju po ćeliju. Za svako stanje DKA upiši skup stanja ε-NKA, označi je li prihvatljivo i izračunaj prijelaze <code>ε-okruženje(δ(S, znak))</code>.</p>
 
+  <div class="embed-grid">
   <section class="panel">
     <h2>1 · Regularni izraz i polazni ε-NKA</h2>
     <div class="row" id="presets" style="gap:6px;margin-bottom:8px"></div>
@@ -100,6 +110,7 @@
     <h3 style="font-size:14px;margin:14px 0 6px">DKA izgrađen iz tvojih točnih odgovora</h3>
     <div class="gwrap" id="dfaGraph"></div>
   </section>
+  </div>
 
   <p class="footer"><a href="../../index.html">← sve simulacije</a> · <a href="../regex-nka-dka/">Korak-po-korak prikaz →</a></p>
 </div>

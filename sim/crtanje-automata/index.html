@@ -15,7 +15,17 @@
   .in-embed p.lead, .in-embed .footer { display: none; }
   .in-embed .popout { display: inline-flex; align-items: center; padding: 4px 10px; font-size: 12.5px; }
   .in-embed .panel { padding: 10px 12px; margin: 8px 0; }
-  .in-embed h2 { font-size: 15px; margin-bottom: 6px; }
+  .in-embed h2 { font-size: 14.5px; margin-bottom: 6px; }
+  @media (min-width: 640px) {
+    .in-embed .embed-grid { display: grid; grid-template-columns: 225px 1fr; gap: 10px; align-items: start; }
+    .in-embed .embed-grid > .panel { margin: 0; min-width: 0; }
+    .in-embed .grid2 { grid-template-columns: 1fr; gap: 6px; }
+    .in-embed .canvas-wrap svg { min-height: 215px; }
+    .in-embed .canvas-wrap.tall svg { min-height: 360px; }
+    .in-embed .toolbar { gap: 4px; margin-bottom: 6px; }
+    .in-embed .toolbar .btn { padding: 5px 8px; font-size: 12.5px; }
+    .in-embed .hint { font-size: 11.5px; }
+  }
   .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--sans); font-size: 13px; padding: 3px 10px; }
   .ex:hover, .ex.sel { border-color: var(--accent); }
   .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -78,6 +88,7 @@
   </div>
   <p class="lead">Nacrtaj konačni automat za zadani regularni izraz ili opis jezika. Provjera uspoređuje tvoj automat s traženim jezikom za sve nizove (produkt-automat) i pronalazi konkretan protuprimjer ako nešto ne štima.</p>
 
+  <div class="embed-grid">
   <section class="panel">
     <h2>1 · Zadatak</h2>
     <div class="row" id="presets" style="gap:6px;margin-bottom:10px"></div>
@@ -145,6 +156,7 @@
     </div>
     <div id="verdict"></div>
   </section>
+  </div>
 
   <section class="panel">
     <h2>3 · Testiraj svoj automat na nizu</h2>
