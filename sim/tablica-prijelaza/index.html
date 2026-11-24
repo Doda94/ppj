@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tablica prijelaza DKA (konstrukcija podskupova) — PPJ</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+  .small { font-size: 13px; }
+  .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--sans); font-size: 13px; padding: 3px 10px; }
+  .ex:hover, .ex.sel { border-color: var(--accent); }
+  .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 6px; margin-top: 8px; }
+  .gwrap svg { display: block; margin: 0 auto; }
+  svg .arr { fill: var(--muted); }
+  svg .arr.act { fill: var(--accent); }
+  svg .ring { fill: none; stroke: var(--ink); stroke-width: 1.2; }
+  svg .nid { font-size: 12px; }
+  svg .lbl { font-size: 12px; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+  .tblwrap { overflow-x: auto; margin: 10px 0; }
+  table.t input.cell-in {
+    width: 100%; min-width: 72px; padding: 5px 7px; border-radius: 6px;
+    border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font: 13px var(--mono);
+  }
+  table.t input.cell-in.set-in { min-width: 130px; }
+  table.t select.cell-sel {
+    padding: 5px 6px; border-radius: 6px; border: 1.5px solid var(--line);
+    background: var(--bg); color: var(--ink); font: 13px var(--mono);
+  }
+  table.t .ok-cell { border-color: var(--ok) !important; background: color-mix(in srgb, var(--ok) 12%, var(--bg)) !important; }
+  table.t .err-cell { border-color: var(--err) !important; background: color-mix(in srgb, var(--err) 12%, var(--bg)) !important; }
+  .feedback { border-left: 4px solid var(--accent); background: var(--bg); padding: 9px 12px; border-radius: 6px; margin-top: 8px; font-size: 13.5px; }
+  .feedback.ok { border-left-color: var(--ok); }
+  .feedback.err { border-left-color: var(--err); }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line);
+    font: 600 13px var(--sans); color: var(--muted); background: var(--bg); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .epsbox { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--bg); margin-top: 10px; }
+  @media (max-width: 520px) { .wrap { padding: 12px 10px 36px; } .btn { padding: 6px 9px; font-size: 13px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tablica prijelaza DKA — konstrukcija podskupova</h1>
+  <p class="lead">Na temelju zadanog ε-NKA popuni tablicu prijelaza DKA ćeliju po ćeliju. Za svako stanje DKA upiši skup stanja ε-NKA, označi je li prihvatljivo i izračunaj prijelaze <code>ε-okruženje(δ(S, znak))</code>.</p>
+
+  <section class="panel">
+    <h2>1 · Regularni izraz i polazni ε-NKA</h2>
+    <div class="row" id="presets" style="gap:6px;margin-bottom:8px"></div>
+    <label for="re">Regularni izraz</label>
+    <input type="text" id="re" value="a*b" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div id="reerr" class="err small" style="min-height:1.2em;margin-top:4px"></div>
+    <div class="gwrap" id="nfaGraph"></div>
+    <p class="small muted" id="nfaInfo" style="margin:6px 0 0"></p>
+
+    <div class="epsbox">
+      <div class="row" style="gap:8px;align-items:flex-end">
+        <div style="flex:1;min-width:160px">
+          <label for="epsIn">Kalkulator ε-okruženja (upiši stanja, npr. <code>0</code> ili <code>2, 3</code>)</label>
+          <input type="text" id="epsIn" value="0" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <button class="btn" type="button" id="epsBtn">Izračunaj ε-okruženje</button>
+      </div>
+      <div id="epsOut" class="small mono" style="margin-top:6px"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2 · Popuni tablicu prijelaza DKA</h2>
+    <p class="small muted" style="margin:0 0 8px">
+      Skupove upisuj brojevima odvojenim zarezom ili razmakom (npr. <code>0, 1, 2, 4</code>). Za prazan prijelaz upiši <code>∅</code> ili <code>-</code> (ili ostavi crticu). Stanja DKA imenuj redom po otkrivanju (<code>D0</code>, <code>D1</code>, <code>D2</code>…).
+    </p>
+    <div class="row" style="gap:6px;margin-bottom:8px">
+      <button class="btn" type="button" id="bAddRow">+ Dodaj sljedeći redak</button>
+      <button class="btn" type="button" id="bShowAllRows">Prikaži sve retke</button>
+      <button class="btn primary" type="button" id="bCheckAll">Provjeri sve</button>
+      <button class="btn" type="button" id="bHint">Pomoć za sljedeću ćeliju</button>
+      <button class="btn" type="button" id="bSolve">Prikaži rješenje</button>
+      <button class="btn" type="button" id="bReset">Isprazni</button>
+      <span class="badge" id="prog">0 / 0 ćelija</span>
+    </div>
+
+    <div class="tblwrap" id="tblWrap"></div>
+    <div class="feedback" id="fb">Počni od retka <b>D0</b>: izračunaj <code>ε-okruženje({0})</code> i upiši ga u stupac „Skup stanja ε-NKA“.</div>
+
+    <h3 style="font-size:14px;margin:14px 0 6px">DKA izgrađen iz tvojih točnih odgovora</h3>
+    <div class="gwrap" id="dfaGraph"></div>
+  </section>
+
+  <p class="footer"><a href="../../index.html">← sve simulacije</a> · <a href="../regex-nka-dka/">Korak-po-korak prikaz →</a></p>
+</div>
+
+<script src="../../assets/regex.js"></script>
+<script>
+(function () {
+  'use strict';
+  var RX = window.PPJ_Regex;
+  var esc = RX.escXml, fmt = RX.fmtSet;
+  function $(id) { return document.getElementById(id); }
+
+  var PRESETS = [
+    { name: 'a*b', re: 'a*b' },
+    { name: '(a|b)*a', re: '(a|b)*a' },
+    { name: '(a|b)*abb', re: '(a|b)*abb' },
+    { name: 'a(b|c)*a', re: 'a(b|c)*a' },
+    { name: '(0|1)+', re: '(0|1)+' },
+    { name: 'a?b+', re: 'a?b+' }
+  ];
+
+  var M = null; // { re, th, dfa }
+  var visibleRows = 1;
+  var inputs = {}; // key -> value string ('set:i', 'acc:i', 'tr:i:k')
+
+  function parseSetInput(raw) {
+    var s = String(raw || '').replace(/[{}]/g, '').trim();
+    if (!s || s === '∅' || s === '-') return [];
+    var parts = s.split(/[\s,;]+/).filter(Boolean);
+    var out = [], seen = {};
+    for (var i = 0; i < parts.length; i++) {
+      if (!/^\d+$/.test(parts[i])) return null;
+      var v = parseInt(parts[i], 10);
+      if (!seen[v]) { seen[v] = true; out.push(v); }
+    }
+    out.sort(function (a, b) { return a - b; });
+    return out;
+  }
+
+  function sameSet(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+
+  function parseStateTarget(raw) {
+    var s = String(raw || '').trim().toUpperCase();
+    if (!s) return undefined;
+    if (s === '∅' || s === '-' || s === 'PRAZNO' || s === 'NEMA') return -1;
+    var m = /^D?(\d+)$/.exec(s);
+    if (!m) return null;
+    return parseInt(m[1], 10);
+  }
+
+  function rebuild() {
+    var src = $('re').value;
+    try {
+      var p = RX.parse(src);
+      var th = RX.thompson(p.ast);
+      var dfa = RX.buildDFA(th.nfa, 40);
+      M = { re: src, th: th, dfa: dfa };
+      $('reerr').textContent = '';
+      visibleRows = 1;
+      inputs = {};
+      $('nfaGraph').innerHTML = RX.renderScene(RX.nfaScene(th), { id: 'ng', label: 'ε-NKA' });
+      $('nfaInfo').innerHTML = 'Početno stanje ε-NKA: <b>' + th.nfa.start + '</b>, prihvatljivo stanje: <b>' + th.nfa.accept + '</b> (ukupno ' + th.nfa.n + ' stanja).';
+      $('epsIn').value = String(th.nfa.start);
+      computeEps();
+      renderTable();
+      updateFeedback('Počni od retka <b>D0</b>: izračunaj <code>ε-okruženje({' + th.nfa.start + '})</code>.', '');
+    } catch (e) {
+      $('reerr').textContent = '⚠ ' + (e && e.message ? e.message : 'Neispravan izraz.');
+    }
+  }
+
+  function computeEps() {
+    if (!M) return;
+    var arr = parseSetInput($('epsIn').value);
+    if (!arr) {
+      $('epsOut').innerHTML = '<span class="err">Upiši brojeve stanja odvojene zarezom (npr. 0, 2).</span>';
+      return;
+    }
+    var valid = arr.filter(function (x) { return x >= 0 && x < M.th.nfa.n; });
+    var clo = RX.epsClosure(M.th.nfa, valid);
+    $('epsOut').innerHTML = 'ε-okruženje(' + esc(fmt(valid)) + ') = <b>' + esc(fmt(clo)) + '</b>';
+  }
+  $('epsBtn').onclick = computeEps;
+  $('epsIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') computeEps(); });
+
+  function checkCell(key) {
+    if (!M) return null;
+    var dfa = M.dfa;
+    var parts = key.split(':');
+    var kind = parts[0], i = +parts[1], k = +parts[2];
+    var val = inputs[key];
+    if (val == null || String(val).trim() === '') return null;
+
+    if (kind === 'set') {
+      var parsed = parseSetInput(val);
+      if (!parsed) return { ok: false, msg: 'Upiši brojeve stanja odvojene zarezom, npr. <code>0, 1, 2</code>.' };
+      if (sameSet(parsed, dfa.states[i].set)) return { ok: true };
+      var exp = dfa.states[i].set;
+      var missing = exp.filter(function (x) { return parsed.indexOf(x) < 0; });
+      var extra = parsed.filter(function (x) { return exp.indexOf(x) < 0; });
+      var hint = 'Netočan skup za <b>D' + i + '</b>.';
+      if (missing.length) hint += ' Nedostaje stanje: ' + missing.join(', ') + ' (provjeri ε-prijelaze!).';
+      if (extra.length) hint += ' Suvišno stanje: ' + extra.join(', ') + '.';
+      return { ok: false, msg: hint };
+    }
+    if (kind === 'acc') {
+      var want = dfa.states[i].accepting ? 'yes' : 'no';
+      if (val === want) return { ok: true };
+      return {
+        ok: false,
+        msg: 'Stanje <b>D' + i + '</b> je prihvatljivo ako i samo ako njegov skup sadrži prihvatljivo stanje ε-NKA (<b>' + dfa.nfa.accept + '</b>).'
+      };
+    }
+    if (kind === 'tr') {
+      var targ = parseStateTarget(val);
+      if (targ === null) return { ok: false, msg: 'Upiši ime stanja (npr. <code>D1</code> ili <code>1</code>) ili <code>∅</code>.' };
+      if (targ === undefined) return null;
+      var wantTo = dfa.trans[i][k];
+      if (targ === wantTo) return { ok: true };
+      var moved = RX.moveChar(dfa.nfa, dfa.states[i].set, dfa.atoms[k].ranges[0][0]);
+      var clo = moved.length ? RX.epsClosure(dfa.nfa, moved) : [];
+      var msg = 'Netočan prijelaz za <b>D' + i + '</b> i znak <code>' + esc(dfa.atoms[k].label) + '</code>: ' +
+        'δ(' + esc(fmt(dfa.states[i].set)) + ', ' + esc(dfa.atoms[k].label) + ') = ' + esc(fmt(moved));
+      if (!moved.length) msg += ' → nema prijelaza (upiši <code>∅</code> ili <code>-</code>).';
+      else msg += ', a ε-okruženje(' + esc(fmt(moved)) + ') = ' + esc(fmt(clo)) + '.';
+      return { ok: false, msg: msg };
+    }
+    return null;
+  }
+
+  function updateFeedback(html, cls) {
+    var fb = $('fb');
+    fb.className = 'feedback' + (cls ? ' ' + cls : '');
+    fb.innerHTML = html;
+  }
+
+  function updateProgressAndGraph() {
+    if (!M) return;
+    var dfa = M.dfa, total = 0, okCnt = 0;
+    var matchedTrans = {};
+    for (var i = 0; i < dfa.states.length; i++) {
+      total += 2 + dfa.atoms.length;
+      if ((checkCell('set:' + i) || {}).ok) okCnt++;
+      if ((checkCell('acc:' + i) || {}).ok) okCnt++;
+      for (var k = 0; k < dfa.atoms.length; k++) {
+        var r = checkCell('tr:' + i + ':' + k);
+        if (r && r.ok) { okCnt++; matchedTrans[i + ':' + k] = true; }
+      }
+    }
+    $('prog').textContent = okCnt + ' / ' + total + ' ćelija';
+    $('prog').className = 'badge' + (okCnt === total && total > 0 ? ' ok' : '');
+
+    // Izgradi parcijalnu scenu DKA na temelju točnih ćelija
+    var partialSteps = [];
+    if ((checkCell('set:0') || {}).ok) partialSteps.push({ type: 'init', to: 0 });
+    for (var s = 0; s < dfa.states.length; s++) {
+      for (var a = 0; a < dfa.atoms.length; a++) {
+        if (matchedTrans[s + ':' + a]) {
+          partialSteps.push({ type: 'trans', from: s, atom: a, to: dfa.trans[s][a] });
+        }
+      }
+    }
+    if (!partialSteps.length) {
+      $('dfaGraph').innerHTML = '<div class="small muted" style="padding:18px;text-align:center">Graf DKA pojavljivat će se kako budeš točno popunjavao tablicu.</div>';
+    } else {
+      var mockDfa = { atoms: dfa.atoms, states: dfa.states, trans: dfa.trans, start: 0, steps: partialSteps };
+      $('dfaGraph').innerHTML = RX.renderScene(RX.dfaScene(mockDfa), { id: 'dg', label: 'Djelomični DKA' });
+    }
+  }
+
+  function renderTable() {
+    if (!M) return;
+    var dfa = M.dfa, nS = Math.min(visibleRows, dfa.states.length);
+    var h = '<table class="t"><thead><tr><th>Stanje</th><th>Skup stanja ε-NKA</th><th>Prihv.?</th>';
+    dfa.atoms.forEach(function (a) { h += '<th>δ′(·, ' + esc(a.label) + ')</th>'; });
+    h += '</tr></thead><tbody>';
+
+    for (var i = 0; i < nS; i++) {
+      h += '<tr><td>' + (i === 0 ? '→ ' : '') + '<b>D' + i + '</b></td>';
+      var sk = 'set:' + i, sr = checkCell(sk);
+      h += '<td><input type="text" class="cell-in set-in' + (sr ? (sr.ok ? ' ok-cell' : ' err-cell') : '') +
+        '" data-key="' + sk + '" value="' + esc(inputs[sk] || '') + '" placeholder="npr. ' + (i === 0 ? '0, 1...' : 'skup') + '" autocomplete="off" spellcheck="false"></td>';
+
+      var ak = 'acc:' + i, ar = checkCell(ak);
+      h += '<td><select class="cell-sel' + (ar ? (ar.ok ? ' ok-cell' : ' err-cell') : '') + '" data-key="' + ak + '">' +
+        '<option value=""' + (!inputs[ak] ? ' selected' : '') + '>—</option>' +
+        '<option value="yes"' + (inputs[ak] === 'yes' ? ' selected' : '') + '>✓ da</option>' +
+        '<option value="no"' + (inputs[ak] === 'no' ? ' selected' : '') + '>✗ ne</option>' +
+        '</select></td>';
+
+      for (var k = 0; k < dfa.atoms.length; k++) {
+        var tk = 'tr:' + i + ':' + k, tr = checkCell(tk);
+        h += '<td><input type="text" class="cell-in' + (tr ? (tr.ok ? ' ok-cell' : ' err-cell') : '') +
+          '" data-key="' + tk + '" value="' + esc(inputs[tk] || '') + '" placeholder="D? / ∅" autocomplete="off" spellcheck="false"></td>';
+      }
+      h += '</tr>';
+    }
+    h += '</tbody></table>';
+    $('tblWrap').innerHTML = h;
+
+    $('bAddRow').disabled = visibleRows >= dfa.states.length;
+
+    Array.prototype.forEach.call($('tblWrap').querySelectorAll('[data-key]'), function (el) {
+      var handler = function () {
+        var k = el.getAttribute('data-key');
+        inputs[k] = el.value;
+        var res = checkCell(k);
+        el.classList.remove('ok-cell', 'err-cell');
+        if (res) {
+          el.classList.add(res.ok ? 'ok-cell' : 'err-cell');
+          if (res.ok) {
+            updateFeedback('Točno! ✓', 'ok');
+            // Ako je korisnik upravo otkrio novi prijelaz u postojeći redak > visibleRows, otvori ga automatski
+            if (k.indexOf('tr:') === 0) {
+              var pts = k.split(':');
+              var to = M.dfa.trans[+pts[1]][+pts[2]];
+              if (to >= visibleRows) { visibleRows = to + 1; renderTable(); return; }
+            }
+          } else {
+            updateFeedback(res.msg, 'err');
+          }
+        }
+        updateProgressAndGraph();
+      };
+      if (el.tagName === 'SELECT') el.onchange = handler;
+      else {
+        el.oninput = function () {
+          var k = el.getAttribute('data-key');
+          inputs[k] = el.value;
+          var res = checkCell(k);
+          el.classList.remove('ok-cell', 'err-cell');
+          if (res && res.ok) {
+            el.classList.add('ok-cell');
+            updateProgressAndGraph();
+          }
+        };
+        el.onchange = handler;
+      }
+    });
+
+    updateProgressAndGraph();
+  }
+
+  $('bAddRow').onclick = function () {
+    if (!M) return;
+    if (visibleRows < M.dfa.states.length) { visibleRows++; renderTable(); }
+  };
+  $('bShowAllRows').onclick = function () {
+    if (!M) return;
+    visibleRows = M.dfa.states.length;
+    renderTable();
+  };
+  $('bCheckAll').onclick = function () {
+    if (!M) return;
+    var dfa = M.dfa, errors = [], empty = 0;
+    visibleRows = dfa.states.length;
+    for (var i = 0; i < dfa.states.length; i++) {
+      var keys = ['set:' + i, 'acc:' + i];
+      for (var k = 0; k < dfa.atoms.length; k++) keys.push('tr:' + i + ':' + k);
+      keys.forEach(function (key) {
+        var r = checkCell(key);
+        if (!r) empty++;
+        else if (!r.ok) errors.push(r.msg);
+      });
+    }
+    renderTable();
+    if (!errors.length && !empty) updateFeedback('<b>Savršeno!</b> Cijela tablica prijelaza DKA je točno popunjena.', 'ok');
+    else if (errors.length) updateFeedback(errors[0] + (errors.length > 1 ? ' (Ukupno pogrešnih ćelija: ' + errors.length + ')' : ''), 'err');
+    else updateFeedback('Dosad upisane ćelije su točne; preostalo je još ' + empty + ' praznih ćelija.', '');
+  };
+
+  $('bHint').onclick = function () {
+    if (!M) return;
+    var dfa = M.dfa;
+    for (var i = 0; i < dfa.states.length; i++) {
+      if (!(checkCell('set:' + i) || {}).ok) {
+        if (i >= visibleRows) visibleRows = i + 1;
+        inputs['set:' + i] = dfa.states[i].set.join(', ');
+        renderTable();
+        updateFeedback('Pomoć: za <b>D' + i + '</b> upisan je skup <code>' + esc(fmt(dfa.states[i].set)) + '</code>.', '');
+        return;
+      }
+      if (!(checkCell('acc:' + i) || {}).ok) {
+        if (i >= visibleRows) visibleRows = i + 1;
+        inputs['acc:' + i] = dfa.states[i].accepting ? 'yes' : 'no';
+        renderTable();
+        updateFeedback('Pomoć: <b>D' + i + '</b> ' + (dfa.states[i].accepting ? 'JE prihvatljivo jer sadrži ' + dfa.nfa.accept : 'NIJE prihvatljivo') + '.', '');
+        return;
+      }
+      for (var k = 0; k < dfa.atoms.length; k++) {
+        if (!(checkCell('tr:' + i + ':' + k) || {}).ok) {
+          if (i >= visibleRows) visibleRows = i + 1;
+          var to = dfa.trans[i][k];
+          inputs['tr:' + i + ':' + k] = to < 0 ? '∅' : ('D' + to);
+          if (to >= visibleRows) visibleRows = to + 1;
+          renderTable();
+          updateFeedback('Pomoć: δ′(<b>D' + i + '</b>, <code>' + esc(dfa.atoms[k].label) + '</code>) = <b>' + (to < 0 ? '∅' : 'D' + to) + '</b>.', '');
+          return;
+        }
+      }
+    }
+    updateFeedback('Sve su ćelije već točno popunjene!', 'ok');
+  };
+
+  $('bSolve').onclick = function () {
+    if (!M) return;
+    var dfa = M.dfa;
+    visibleRows = dfa.states.length;
+    for (var i = 0; i < dfa.states.length; i++) {
+      inputs['set:' + i] = dfa.states[i].set.join(', ');
+      inputs['acc:' + i] = dfa.states[i].accepting ? 'yes' : 'no';
+      for (var k = 0; k < dfa.atoms.length; k++) {
+        var to = dfa.trans[i][k];
+        inputs['tr:' + i + ':' + k] = to < 0 ? '∅' : ('D' + to);
+      }
+    }
+    renderTable();
+    updateFeedback('Prikazano je potpuno rješenje konstrukcije podskupova.', 'ok');
+  };
+
+  $('bReset').onclick = function () {
+    inputs = {};
+    visibleRows = 1;
+    renderTable();
+    updateFeedback('Tablica je ispražnjena. Počni od <b>D0</b>.', '');
+  };
+
+  var ph = $('presets');
+  PRESETS.forEach(function (p, idx) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip ex'; b.textContent = p.name;
+    b.onclick = function () {
+      $('re').value = p.re;
+      Array.prototype.forEach.call(ph.querySelectorAll('.ex'), function (x, j) { x.classList.toggle('sel', j === idx); });
+      rebuild();
+    };
+    ph.appendChild(b);
+  });
+  $('re').addEventListener('input', function () {
+    Array.prototype.forEach.call(ph.querySelectorAll('.ex'), function (x) { x.classList.remove('sel'); });
+    rebuild();
+  });
+
+  ph.querySelectorAll('.ex')[0].classList.add('sel');
+  rebuild();
+})();
+</script>
+</body>
+</html>

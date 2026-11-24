@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crtanje automata (ε-NKA / DKA) — PPJ</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+  .small { font-size: 13px; }
+  .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--sans); font-size: 13px; padding: 3px 10px; }
+  .ex:hover, .ex.sel { border-color: var(--accent); }
+  .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
+  .toolbar .btn.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .toolbar .sep { width: 1px; height: 22px; background: var(--line); margin: 0 2px; }
+  .canvas-wrap { position: relative; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); overflow: hidden; }
+  .canvas-wrap svg { display: block; width: 100%; height: auto; min-height: 270px; touch-action: none; user-select: none; -webkit-user-select: none; }
+  svg .arr { fill: var(--muted); }
+  svg .arr.sel { fill: var(--accent); }
+  svg .ring { fill: none; stroke: var(--ink); stroke-width: 1.3; }
+  svg .node { fill: var(--panel); stroke: var(--ink); stroke-width: 1.6; cursor: pointer; }
+  svg .node.final { stroke-width: 2.4; }
+  svg .node.sel { stroke: var(--accent); stroke-width: 2.8; }
+  svg .node.active { fill: var(--hl); }
+  svg .node.src { stroke: var(--warn); stroke-dasharray: 4 2; stroke-width: 2.6; }
+  svg .nid { font-size: 13px; font-weight: 600; pointer-events: none; }
+  svg .edge { stroke: var(--muted); stroke-width: 1.6; fill: none; cursor: pointer; }
+  svg .edge.sel { stroke: var(--accent); stroke-width: 2.4; }
+  svg .edge-hit { stroke: transparent; stroke-width: 16; fill: none; cursor: pointer; }
+  svg .lbl { font-size: 13px; font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 5px; stroke-linejoin: round; cursor: pointer; }
+  svg .lbl.sel { fill: var(--accent); }
+  svg .preview { stroke: var(--accent); stroke-width: 1.8; stroke-dasharray: 5 4; fill: none; pointer-events: none; }
+  .trbox { border: 1px solid var(--accent); background: var(--panel); border-radius: 8px; padding: 10px; margin: 8px 0; }
+  .trbox .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .trbox .chip { cursor: pointer; border: 1px solid var(--line); }
+  .trbox .chip:hover { border-color: var(--accent); }
+  .verdict { border-left: 4px solid var(--line); background: var(--bg); padding: 10px 12px; border-radius: 8px; margin-top: 10px; }
+  .verdict.ok { border-left-color: var(--ok); }
+  .verdict.err { border-left-color: var(--err); }
+  .verdict.warn { border-left-color: var(--warn); }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line);
+    font: 600 13px var(--sans); color: var(--muted); background: var(--panel); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.err { color: var(--err); border-color: var(--err); }
+  .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 6px; margin-top: 8px; }
+  .gwrap svg { display: block; margin: 0 auto; }
+  svg .acc { font-size: 11px; fill: var(--muted); }
+  svg .cap { font-size: 12px; fill: var(--muted); }
+  .strip { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; align-items: center; }
+  .strip .c { min-width: 28px; text-align: center; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px;
+    font: 15px var(--mono); background: var(--bg); color: var(--muted); }
+  .strip .c.done { color: var(--ink); background: var(--chip); border-color: transparent; }
+  .strip .c.cur { background: var(--hl); color: var(--hl-ink); border-color: var(--warn); font-weight: 700; }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+  .tblwrap { overflow-x: auto; margin-top: 8px; }
+  @media (max-width: 520px) {
+    .wrap { padding: 12px 10px 36px; }
+    .btn { padding: 6px 9px; font-size: 13px; }
+    .toolbar .sep { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Crtanje automata (ε-NKA / DKA)</h1>
+  <p class="lead">Nacrtaj konačni automat za zadani regularni izraz ili opis jezika. Provjera uspoređuje tvoj automat s traženim jezikom za sve nizove (produkt-automat) i pronalazi konkretan protuprimjer ako nešto ne štima.</p>
+
+  <section class="panel">
+    <h2>1 · Zadatak</h2>
+    <div class="row" id="presets" style="gap:6px;margin-bottom:10px"></div>
+    <div class="grid2">
+      <div>
+        <label for="re">Ciljani regularni izraz</label>
+        <input type="text" id="re" value="a*b+" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div id="reerr" class="err small" style="min-height:1.2em;margin-top:4px"></div>
+      </div>
+      <div>
+        <label for="mode">Vrsta automata koju crtaš</label>
+        <select id="mode">
+          <option value="dfa">DKA (deterministički, bez ε)</option>
+          <option value="nfa">ε-NKA (dozvoljeni ε-prijelazi i nedeterminizam)</option>
+        </select>
+        <p id="taskdesc" class="hint"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2 · Platno za crtanje</h2>
+    <div class="toolbar" role="toolbar" aria-label="Alati za crtanje">
+      <button class="btn active" type="button" data-tool="select" id="tSelect">Odaberi / Pomakni</button>
+      <button class="btn" type="button" data-tool="add" id="tAdd">+ Stanje</button>
+      <button class="btn" type="button" data-tool="edge" id="tEdge">↗ Prijelaz</button>
+      <span class="sep"></span>
+      <button class="btn" type="button" id="bStart" title="Označi odabrano stanje kao početno">→ Početno</button>
+      <button class="btn" type="button" id="bAcc" title="Uključi/isključi prihvatljivost odabranog stanja">◎ Prihvatljivo</button>
+      <button class="btn" type="button" id="bDel" title="Obriši odabrano stanje ili prijelaz">✕ Obriši</button>
+      <button class="btn" type="button" id="bClear">Očisti</button>
+    </div>
+
+    <div class="trbox" id="trbox" hidden>
+      <div class="row" style="gap:8px">
+        <div style="flex:1;min-width:170px">
+          <label for="trInput" id="trTitle">Oznaka prijelaza</label>
+          <input type="text" id="trInput" placeholder="npr. a ili a,b ili 0-7 ili ε" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <button class="btn primary" type="button" id="trSave">Spremi</button>
+        <button class="btn" type="button" id="trCancel">Odustani</button>
+      </div>
+      <div class="chips" id="trChips"></div>
+      <div id="trErr" class="err small" style="margin-top:4px"></div>
+    </div>
+
+    <div class="canvas-wrap">
+      <svg id="canvas" viewBox="0 0 680 340" role="img" aria-label="Platno za crtanje automata">
+        <defs>
+          <marker id="ua" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0,0L10,5L0,10z" class="arr"/></marker>
+          <marker id="uas" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M0,0L10,5L0,10z" class="arr sel"/></marker>
+        </defs>
+        <g id="layerEdges"></g>
+        <g id="layerPreview"></g>
+        <g id="layerNodes"></g>
+        <g id="layerLabels"></g>
+      </svg>
+    </div>
+    <p class="hint" id="canvasHint">Dvoklik na prazno platno dodaje stanje. U načinu „↗ Prijelaz“ klikni polazno pa odredišno stanje (za petlju klikni isto stanje dvaput). Klik na oznaku prijelaza mijenja znakove.</p>
+
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" type="button" id="bCheck">Provjeri automat</button>
+      <button class="btn" type="button" id="bSol">Prikaži točno rješenje</button>
+    </div>
+    <div id="verdict"></div>
+  </section>
+
+  <section class="panel">
+    <h2>3 · Testiraj svoj automat na nizu</h2>
+    <div class="row" style="gap:8px">
+      <input type="text" id="testStr" value="ab" placeholder="Upiši niz za testiranje..." autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:150px">
+      <button class="btn" type="button" id="tReset">⏮</button>
+      <button class="btn" type="button" id="tBack">◀</button>
+      <button class="btn primary" type="button" id="tNext">Korak ▶</button>
+      <button class="btn" type="button" id="tEnd">Kraj ⏭</button>
+    </div>
+    <div class="strip" id="testStrip"></div>
+    <div id="testInfo" class="small muted"></div>
+  </section>
+
+  <section class="panel" id="solPanel" hidden>
+    <h2 id="solTitle">Točno rješenje — korak po korak</h2>
+    <div class="row" id="solCtl" style="gap:6px;margin-bottom:8px">
+      <button class="btn" type="button" id="sReset">⏮ Reset</button>
+      <button class="btn" type="button" id="sBack">◀ Natrag</button>
+      <button class="btn primary" type="button" id="sNext">Korak ▶</button>
+      <button class="btn" type="button" id="sEnd">Do kraja ⏭</button>
+      <span class="badge" id="sCnt"></span>
+    </div>
+    <div id="solStepText" class="small" style="margin-bottom:6px"></div>
+    <div class="gwrap" id="solGraph"></div>
+    <div class="tblwrap" id="solTbl"></div>
+  </section>
+
+  <p class="footer"><a href="../../index.html">← sve simulacije</a></p>
+</div>
+
+<script src="../../assets/regex.js"></script>
+<script src="../../assets/automata-check.js"></script>
+<script>
+(function () {
+  'use strict';
+  var RX = window.PPJ_Regex;
+  var AC = window.PPJ_AutomataCheck;
+  function $(id) { return document.getElementById(id); }
+  var esc = RX.escXml, vis = RX.vis, fmt = RX.fmtSet;
+
+  var PRESETS = [
+    { name: 'a*b+', re: 'a*b+', mode: 'dfa', desc: 'Nula ili više znakova a, zatim barem jedan znak b.' },
+    { name: '(a|b)*abb', re: '(a|b)*abb', mode: 'dfa', desc: 'Svi nizovi nad {a, b} koji završavaju podnizom abb.' },
+    { name: 'a(a|b)*', re: 'a(a|b)*', mode: 'dfa', desc: 'Nizovi nad {a, b} koji počinju znakom a.' },
+    { name: '(0|1)*01', re: '(0|1)*01', mode: 'dfa', desc: 'Binarni nizovi koji završavaju s 01.' },
+    { name: '0[0-7]*', re: '0[0-7]*', mode: 'dfa', desc: 'Oktalni brojevi koji počinju znamenkom 0.' },
+    { name: '(a|b)*b(a|b)', re: '(a|b)*b(a|b)', mode: 'nfa', desc: 'Nizovi nad {a, b} kojima je predzadnji znak b (pokušaj NKA ili DKA).' },
+    { name: 'a(b|c)*a', re: 'a(b|c)*a', mode: 'dfa', desc: 'Počinje i završava znakom a, između je bilo koliko b ili c.' },
+    { name: '(ab)+|c', re: '(ab)+|c', mode: 'nfa', desc: 'Jedno ili više ponavljanja niza ab, ili sam znak c.' }
+  ];
+
+  var R = 21;
+  var state = {
+    states: [
+      { id: 0, label: 'q0', x: 130, y: 170, start: true, accepting: false },
+      { id: 1, label: 'q1', x: 320, y: 170, start: false, accepting: true }
+    ],
+    transitions: [],
+    nextId: 2,
+    tool: 'select',
+    selState: 0,
+    selEdge: null,   // index in transitions
+    edgeFrom: null,
+    dragging: null,  // { id, ox, oy }
+    pendingEdge: null // { from, to, editIdx }
+  };
+
+  var targetModel = null; // { re, ast, th, dfa }
+  var testTrace = null, testStep = 0;
+  var solStep = 0, solMax = 0;
+
+  /* ------------------------------------------------ model cilja */
+  function updateTarget() {
+    var src = $('re').value;
+    try {
+      var p = RX.parse(src);
+      var th = RX.thompson(p.ast);
+      var dfa = RX.buildDFA(th.nfa);
+      targetModel = { re: src, p: p, th: th, dfa: dfa };
+      $('reerr').textContent = '';
+      if (!$('solPanel').hidden) renderSolution(true);
+    } catch (e) {
+      targetModel = null;
+      $('reerr').textContent = '⚠ ' + (e && e.message ? e.message : 'Neispravan izraz.');
+    }
+    updateAlphabetChips();
+  }
+
+  function alphabetChars() {
+    var out = [];
+    if (targetModel) {
+      targetModel.dfa.atoms.forEach(function (a) {
+        RX.atomChars(a).slice(0, 4).forEach(function (c) {
+          if (out.indexOf(c) < 0) out.push(c);
+        });
+      });
+    }
+    if (!out.length) out = ['a', 'b', '0', '1'];
+    return out.slice(0, 8);
+  }
+
+  function updateAlphabetChips() {
+    var host = $('trChips');
+    host.innerHTML = '';
+    var chars = alphabetChars();
+    if ($('mode').value === 'nfa') chars.unshift('ε');
+    chars.forEach(function (ch) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = ch;
+      b.onclick = function () {
+        var inp = $('trInput');
+        if (ch === 'ε') inp.value = 'ε';
+        else {
+          var v = inp.value.trim();
+          if (!v || v === 'ε') inp.value = ch;
+          else if (v.split(/\s*,\s*/).indexOf(ch) < 0) inp.value = v + ', ' + ch;
+        }
+        inp.focus();
+      };
+      host.appendChild(b);
+    });
+  }
+
+  /* ------------------------------------------------ platno i geometrija */
+  function svgPt(evt) {
+    var svg = $('canvas');
+    var rect = svg.getBoundingClientRect();
+    var vb = svg.viewBox.baseVal;
+    return {
+      x: Math.max(30, Math.min(vb.width - 24, (evt.clientX - rect.left) * vb.width / rect.width)),
+      y: Math.max(30, Math.min(vb.height - 24, (evt.clientY - rect.top) * vb.height / rect.height))
+    };
+  }
+  function findState(id) {
+    for (var i = 0; i < state.states.length; i++) if (state.states[i].id === id) return state.states[i];
+    return null;
+  }
+  function nextFreeLabel() {
+    var used = {};
+    state.states.forEach(function (s) { used[s.label] = true; });
+    var k = 0;
+    while (used['q' + k]) k++;
+    return 'q' + k;
+  }
+
+  function edgeGeom(tr, pairMap) {
+    var a = findState(tr.from), b = findState(tr.to);
+    if (!a || !b) return null;
+    if (a.id === b.id) {
+      var d = 'M' + (a.x - 10) + ',' + (a.y - R + 3) +
+        ' C' + (a.x - 36) + ',' + (a.y - R - 46) + ' ' + (a.x + 36) + ',' + (a.y - R - 46) + ' ' + (a.x + 10) + ',' + (a.y - R + 2);
+      return { d: d, lx: a.x, ly: a.y - R - 38 };
+    }
+    var dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    var ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+    var hasRev = !!pairMap[tr.to + '>' + tr.from];
+    var off = hasRev ? 28 : 0;
+    var mx = (a.x + b.x) / 2 + nx * off, my = (a.y + b.y) / 2 + ny * off;
+    var x1 = a.x + ux * (R * 0.8), y1 = a.y + uy * (R * 0.8);
+    var x2 = b.x - ux * (R + 2), y2 = b.y - uy * (R + 2);
+    if (hasRev) {
+      // Pomakni krajnju točku blago u smjeru normale da strelice budu čitljive
+      x1 += nx * 6; y1 += ny * 6;
+      x2 += nx * 6; y2 += ny * 6;
+    }
+    var d2 = 'M' + x1.toFixed(1) + ',' + y1.toFixed(1) + ' Q' + mx.toFixed(1) + ',' + my.toFixed(1) + ' ' + x2.toFixed(1) + ',' + y2.toFixed(1);
+    var lx = (a.x + b.x) / 2 + nx * (off * 0.65 + (hasRev ? 14 : 13));
+    var ly = (a.y + b.y) / 2 + ny * (off * 0.65 + (hasRev ? 14 : 13)) + 4;
+    return { d: d2, lx: lx, ly: ly };
+  }
+
+  function renderCanvas() {
+    var activeSet = {};
+    if (testTrace && testTrace.trace && testTrace.trace[testStep]) {
+      testTrace.trace[testStep].R.forEach(function (idx) {
+        var st = state.states[idx];
+        if (st) activeSet[st.id] = true;
+      });
+    }
+
+    var pairMap = {};
+    state.transitions.forEach(function (t) { pairMap[t.from + '>' + t.to] = true; });
+
+    var eh = [], lh = [];
+    state.transitions.forEach(function (tr, idx) {
+      var g = edgeGeom(tr, pairMap);
+      if (!g) return;
+      var sel = state.selEdge === idx;
+      eh.push('<path class="edge-hit" data-edge="' + idx + '" d="' + g.d + '"/>');
+      eh.push('<path class="edge' + (sel ? ' sel' : '') + '" d="' + g.d + '" marker-end="url(#' + (sel ? 'uas' : 'ua') + ')"/>');
+      lh.push('<text class="lbl' + (sel ? ' sel' : '') + '" data-edge="' + idx + '" x="' + g.lx.toFixed(1) + '" y="' + g.ly.toFixed(1) + '" text-anchor="middle">' + esc(tr.label) + '</text>');
+    });
+    $('layerEdges').innerHTML = eh.join('');
+    $('layerLabels').innerHTML = lh.join('');
+
+    var nh = [];
+    state.states.forEach(function (s) {
+      if (s.start) {
+        nh.push('<path class="edge" d="M' + (s.x - R - 34) + ',' + s.y + ' L' + (s.x - R - 2) + ',' + s.y + '" marker-end="url(#ua)"/>');
+      }
+      var cls = ['node'];
+      if (s.accepting) cls.push('final');
+      if (state.selState === s.id) cls.push('sel');
+      if (state.edgeFrom === s.id) cls.push('src');
+      if (activeSet[s.id]) cls.push('active');
+      nh.push('<g data-node="' + s.id + '">' +
+        '<circle class="' + cls.join(' ') + '" cx="' + s.x.toFixed(1) + '" cy="' + s.y.toFixed(1) + '" r="' + R + '"/>' +
+        (s.accepting ? '<circle class="ring" cx="' + s.x.toFixed(1) + '" cy="' + s.y.toFixed(1) + '" r="' + (R - 4.5) + '" style="pointer-events:none"/>' : '') +
+        '<text class="nid" x="' + s.x.toFixed(1) + '" y="' + (s.y + 4).toFixed(1) + '" text-anchor="middle">' + esc(s.label) + '</text>' +
+        '</g>');
+    });
+    $('layerNodes').innerHTML = nh.join('');
+
+    $('bStart').disabled = state.selState == null;
+    $('bAcc').disabled = state.selState == null;
+    $('bDel').disabled = state.selState == null && state.selEdge == null;
+  }
+
+  function setTool(t) {
+    state.tool = t;
+    state.edgeFrom = null;
+    $('layerPreview').innerHTML = '';
+    ['select', 'add', 'edge'].forEach(function (k) {
+      var btn = document.querySelector('[data-tool="' + k + '"]');
+      if (btn) btn.classList.toggle('active', k === t);
+    });
+    renderCanvas();
+  }
+
+  function openTransitionEditor(from, to, editIdx) {
+    state.pendingEdge = { from: from, to: to, editIdx: editIdx };
+    var a = findState(from), b = findState(to);
+    $('trTitle').textContent = (editIdx != null ? 'Uredi prijelaz ' : 'Novi prijelaz ') + a.label + ' → ' + b.label;
+    $('trErr').textContent = '';
+    if (editIdx != null) {
+      $('trInput').value = state.transitions[editIdx].label;
+    } else {
+      var existingIdx = -1;
+      for (var i = 0; i < state.transitions.length; i++) {
+        if (state.transitions[i].from === from && state.transitions[i].to === to) { existingIdx = i; break; }
+      }
+      if (existingIdx >= 0) {
+        state.pendingEdge.editIdx = existingIdx;
+        $('trInput').value = state.transitions[existingIdx].label;
+        $('trTitle').textContent = 'Uredi postojeći prijelaz ' + a.label + ' → ' + b.label;
+      } else {
+        $('trInput').value = alphabetChars()[0] || 'a';
+      }
+    }
+    updateAlphabetChips();
+    $('trbox').hidden = false;
+    $('trInput').focus();
+    $('trInput').select();
+  }
+
+  function savePendingTransition() {
+    if (!state.pendingEdge) return;
+    var raw = $('trInput').value.trim();
+    try {
+      var p = AC.parseTransitionLabel(raw);
+      var lbl = p.eps ? 'ε' : raw;
+      if (state.pendingEdge.editIdx != null) {
+        state.transitions[state.pendingEdge.editIdx].label = lbl;
+        state.selEdge = state.pendingEdge.editIdx;
+      } else {
+        state.transitions.push({ from: state.pendingEdge.from, to: state.pendingEdge.to, label: lbl });
+        state.selEdge = state.transitions.length - 1;
+      }
+      state.selState = null;
+      $('trbox').hidden = true;
+      state.pendingEdge = null;
+      renderCanvas();
+      runTest();
+    } catch (e) {
+      $('trErr').textContent = '⚠ ' + e.message;
+    }
+  }
+
+  $('trSave').onclick = savePendingTransition;
+  $('trCancel').onclick = function () { $('trbox').hidden = true; state.pendingEdge = null; };
+  $('trInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); savePendingTransition(); }
+    if (e.key === 'Escape') { $('trbox').hidden = true; state.pendingEdge = null; }
+  });
+
+  // Pointer događaji na SVG platnu
+  var svgEl = $('canvas');
+  svgEl.addEventListener('pointerdown', function (evt) {
+    var nodeG = evt.target.closest('[data-node]');
+    var edgeEl = evt.target.closest('[data-edge]');
+    var pt = svgPt(evt);
+
+    if (state.tool === 'add') {
+      if (nodeG) {
+        state.selState = +nodeG.getAttribute('data-node');
+        state.selEdge = null;
+        renderCanvas();
+        return;
+      }
+      var id = state.nextId++;
+      state.states.push({ id: id, label: nextFreeLabel(), x: pt.x, y: pt.y, start: state.states.length === 0, accepting: false });
+      state.selState = id;
+      state.selEdge = null;
+      renderCanvas();
+      runTest();
+      return;
+    }
+
+    if (state.tool === 'edge') {
+      if (nodeG) {
+        var nid = +nodeG.getAttribute('data-node');
+        if (state.edgeFrom == null) {
+          state.edgeFrom = nid;
+          state.selState = nid;
+          state.selEdge = null;
+          renderCanvas();
+        } else {
+          var from = state.edgeFrom;
+          state.edgeFrom = null;
+          $('layerPreview').innerHTML = '';
+          openTransitionEditor(from, nid, null);
+          renderCanvas();
+        }
+      } else {
+        state.edgeFrom = null;
+        $('layerPreview').innerHTML = '';
+        renderCanvas();
+      }
+      return;
+    }
+
+    // tool === 'select'
+    if (nodeG) {
+      var sid = +nodeG.getAttribute('data-node');
+      var st = findState(sid);
+      state.selState = sid;
+      state.selEdge = null;
+      state.dragging = { id: sid, ox: st.x - pt.x, oy: st.y - pt.y };
+      try { svgEl.setPointerCapture(evt.pointerId); } catch (e) {}
+      renderCanvas();
+    } else if (edgeEl) {
+      var eidx = +edgeEl.getAttribute('data-edge');
+      state.selEdge = eidx;
+      state.selState = null;
+      renderCanvas();
+      openTransitionEditor(state.transitions[eidx].from, state.transitions[eidx].to, eidx);
+    } else {
+      state.selState = null;
+      state.selEdge = null;
+      renderCanvas();
+    }
+  });
+
+  svgEl.addEventListener('pointermove', function (evt) {
+    var pt = svgPt(evt);
+    if (state.dragging) {
+      var st = findState(state.dragging.id);
+      if (st) {
+        st.x = Math.max(36, Math.min(656, pt.x + state.dragging.ox));
+        st.y = Math.max(36, Math.min(314, pt.y + state.dragging.oy));
+        renderCanvas();
+      }
+    } else if (state.tool === 'edge' && state.edgeFrom != null) {
+      var src = findState(state.edgeFrom);
+      if (src) {
+        $('layerPreview').innerHTML = '<path class="preview" d="M' + src.x + ',' + src.y + ' L' + pt.x.toFixed(1) + ',' + pt.y.toFixed(1) + '" marker-end="url(#uas)"/>';
+      }
+    }
+  });
+
+  svgEl.addEventListener('pointerup', function () {
+    state.dragging = null;
+  });
+
+  svgEl.addEventListener('dblclick', function (evt) {
+    if (evt.target.closest('[data-node]') || evt.target.closest('[data-edge]')) return;
+    var pt = svgPt(evt);
+    var id = state.nextId++;
+    state.states.push({ id: id, label: nextFreeLabel(), x: pt.x, y: pt.y, start: state.states.length === 0, accepting: false });
+    state.selState = id;
+    state.selEdge = null;
+    renderCanvas();
+    runTest();
+  });
+
+  // Gumbi alatne trake
+  ['select', 'add', 'edge'].forEach(function (k) {
+    document.querySelector('[data-tool="' + k + '"]').onclick = function () { setTool(k); };
+  });
+
+  $('bStart').onclick = function () {
+    if (state.selState == null) return;
+    state.states.forEach(function (s) { s.start = (s.id === state.selState); });
+    renderCanvas();
+    runTest();
+  };
+  $('bAcc').onclick = function () {
+    if (state.selState == null) return;
+    var s = findState(state.selState);
+    if (s) s.accepting = !s.accepting;
+    renderCanvas();
+    runTest();
+  };
+  $('bDel').onclick = function () {
+    if (state.selEdge != null) {
+      state.transitions.splice(state.selEdge, 1);
+      state.selEdge = null;
+    } else if (state.selState != null) {
+      var id = state.selState;
+      state.states = state.states.filter(function (s) { return s.id !== id; });
+      state.transitions = state.transitions.filter(function (t) { return t.from !== id && t.to !== id; });
+      if (state.states.length && !state.states.some(function (s) { return s.start; })) state.states[0].start = true;
+      state.selState = null;
+    }
+    $('trbox').hidden = true;
+    renderCanvas();
+    runTest();
+  };
+  $('bClear').onclick = function () {
+    state.states = [{ id: 0, label: 'q0', x: 130, y: 170, start: true, accepting: false }];
+    state.transitions = [];
+    state.nextId = 1;
+    state.selState = 0;
+    state.selEdge = null;
+    state.edgeFrom = null;
+    $('trbox').hidden = true;
+    $('verdict').innerHTML = '';
+    renderCanvas();
+    runTest();
+  };
+
+  /* ------------------------------------------------ provjera ekvivalentnosti */
+  $('bCheck').onclick = function () {
+    if (!targetModel) {
+      $('verdict').innerHTML = '<div class="verdict err">Prvo ispravi sintaksu ciljanog regularnog izraza.</div>';
+      return;
+    }
+    var mode = $('mode').value;
+    var res = AC.checkEquivalence(targetModel.re, { states: state.states, transitions: state.transitions }, mode);
+    if (!res.ok) {
+      $('verdict').innerHTML = '<div class="verdict err"><b>Greška u nacrtanom automatu:</b> ' + esc(res.error) + '</div>';
+      return;
+    }
+    if (res.equivalent) {
+      $('verdict').innerHTML = '<div class="verdict ok"><span class="badge ok">TOČNO ✓</span> ' + esc(res.reason) + '</div>';
+      return;
+    }
+    var html = '<div class="verdict err"><span class="badge err">NIJE EKVIVALENTNO ✗</span> ' + esc(res.reason);
+    if (res.determinismErrors && res.determinismErrors.length > 1) {
+      html += '<ul class="small" style="margin:6px 0 0;padding-left:18px">' +
+        res.determinismErrors.map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('') + '</ul>';
+    }
+    if (res.counterexample != null) {
+      html += ' <button class="btn" type="button" id="tryCe" style="margin-left:8px;padding:3px 9px;font-size:12.5px">Učitaj protuprimjer u test</button>';
+    }
+    html += '</div>';
+    $('verdict').innerHTML = html;
+    var btn = $('tryCe');
+    if (btn) btn.onclick = function () {
+      $('testStr').value = res.counterexample;
+      runTest();
+      testStep = Array.from(res.counterexample).length;
+      renderTest();
+    };
+  };
+
+  /* ------------------------------------------------ testiranje niza na nacrtanom automatu */
+  function runTest() {
+    var s = $('testStr').value;
+    testTrace = AC.runUserAutomaton({ states: state.states, transitions: state.transitions }, s);
+    testStep = 0;
+    renderTest();
+  }
+  function renderTest() {
+    var s = $('testStr').value;
+    var chars = Array.from(s);
+    if (!testTrace || testTrace.error) {
+      $('testStrip').innerHTML = '';
+      $('testInfo').innerHTML = '<span class="err">' + esc(testTrace ? testTrace.error : '') + '</span>';
+      renderCanvas();
+      return;
+    }
+    if (testStep > chars.length) testStep = chars.length;
+    var sh = '';
+    if (!chars.length) sh = '<span class="muted small">(prazan niz ε)</span>';
+    chars.forEach(function (ch, idx) {
+      var cls = idx < testStep - 1 ? 'done' : idx === testStep - 1 ? 'cur' : '';
+      sh += '<span class="c ' + cls + '">' + esc(vis(ch)) + '</span>';
+    });
+    $('testStrip').innerHTML = sh;
+
+    var cur = testTrace.trace[testStep];
+    var names = cur.R.map(function (idx) { return state.states[idx] ? state.states[idx].label : ('q' + idx); });
+    var msg = 'Korak ' + testStep + ' / ' + chars.length + ': aktivna stanja = ' + (names.length ? '{' + names.join(', ') + '}' : '∅') + '.';
+    if (testStep === chars.length) {
+      msg += testTrace.accepts
+        ? ' <b class="ok">Automat PRIHVAĆA ovaj niz.</b>'
+        : ' <b class="err">Automat ODBACUJE ovaj niz.</b>';
+    }
+    $('testInfo').innerHTML = msg;
+    $('tReset').disabled = $('tBack').disabled = testStep <= 0;
+    $('tNext').disabled = $('tEnd').disabled = testStep >= chars.length;
+    renderCanvas();
+  }
+  $('testStr').addEventListener('input', runTest);
+  $('tReset').onclick = function () { testStep = 0; renderTest(); };
+  $('tBack').onclick = function () { if (testStep > 0) testStep--; renderTest(); };
+  $('tNext').onclick = function () { var n = Array.from($('testStr').value).length; if (testStep < n) testStep++; renderTest(); };
+  $('tEnd').onclick = function () { testStep = Array.from($('testStr').value).length; renderTest(); };
+
+  /* ------------------------------------------------ prikaz rješenja korak po korak */
+  function renderSolution(resetToEnd) {
+    if (!targetModel) return;
+    var mode = $('mode').value;
+    if (mode === 'nfa') {
+      solMax = targetModel.th.order.length;
+      if (resetToEnd) solStep = solMax;
+      solStep = Math.max(0, Math.min(solMax, solStep));
+      $('solTitle').textContent = 'Točno rješenje: Thompsonov ε-NKA (korak po korak)';
+      $('sCnt').textContent = 'Korak ' + solStep + ' / ' + solMax;
+      if (solStep === 0) {
+        $('solStepText').textContent = 'Korak 0: pritisni „Korak“ za postupnu Thompsonovu izgradnju.';
+        $('solGraph').innerHTML = '<div class="small muted" style="padding:18px;text-align:center">Prazno</div>';
+      } else {
+        var f = targetModel.th.order[solStep - 1];
+        $('solStepText').innerHTML = 'Podizraz <code>' + esc(f.node.text === '' ? 'ε' : f.node.text) + '</code> → stanja <b>' + f.s + '</b>..<b>' + f.f + '</b>.';
+        $('solGraph').innerHTML = RX.renderScene(RX.buildStepScene(targetModel.th, solStep), { id: 'sg', label: 'Rješenje ε-NKA' });
+      }
+      $('solTbl').innerHTML = '';
+    } else {
+      var dfa = targetModel.dfa;
+      solMax = dfa.steps.length;
+      if (resetToEnd) solStep = solMax;
+      solStep = Math.max(0, Math.min(solMax, solStep));
+      $('solTitle').textContent = 'Točno rješenje: DKA konstrukcijom podskupova';
+      $('sCnt').textContent = 'Korak ' + solStep + ' / ' + solMax;
+      var cur = solStep > 0 ? dfa.steps[solStep - 1] : null;
+      if (!cur) {
+        $('solStepText').textContent = 'Korak 0: početno stanje D0 = ε-okruženje početnog stanja ε-NKA.';
+        $('solGraph').innerHTML = '<div class="small muted" style="padding:18px;text-align:center">Pritisni „Korak“.</div>';
+      } else if (cur.type === 'init') {
+        $('solStepText').innerHTML = 'D0 = ' + esc(fmt(cur.closure)) + '.';
+        $('solGraph').innerHTML = RX.renderScene(RX.dfaScene(dfa, { step: solStep, current: 0 }), { id: 'sd', label: 'Rješenje DKA' });
+      } else {
+        var at = dfa.atoms[cur.atom];
+        $('solStepText').innerHTML = 'Iz <b>D' + cur.from + '</b> za <code>' + esc(at.label) + '</code>: ' + (cur.to < 0 ? '∅ (nema prijelaza)' : '<b>D' + cur.to + '</b> = ' + esc(fmt(cur.closure)));
+        $('solGraph').innerHTML = RX.renderScene(RX.dfaScene(dfa, { step: solStep, current: cur.from, hiEdge: true }), { id: 'sd', label: 'Rješenje DKA' });
+      }
+      var th = '<table class="t"><thead><tr><th>Stanje</th><th>Skup ε-NKA</th>';
+      dfa.atoms.forEach(function (a) { th += '<th>' + esc(a.label) + '</th>'; });
+      th += '</tr></thead><tbody>';
+      dfa.states.forEach(function (st, i) {
+        th += '<tr><td>' + (i === 0 ? '→ ' : '') + '<b>D' + i + '</b>' + (st.accepting ? ' ✓' : '') + '</td><td>' + esc(fmt(st.set)) + '</td>';
+        dfa.atoms.forEach(function (_, k) {
+          var to = dfa.trans[i][k];
+          th += '<td>' + (to < 0 ? '∅' : 'D' + to) + '</td>';
+        });
+        th += '</tr>';
+      });
+      $('solTbl').innerHTML = th + '</tbody></table>';
+    }
+    $('sReset').disabled = $('sBack').disabled = solStep <= 0;
+    $('sNext').disabled = $('sEnd').disabled = solStep >= solMax;
+  }
+
+  $('bSol').onclick = function () {
+    $('solPanel').hidden = !$('solPanel').hidden;
+    $('bSol').textContent = $('solPanel').hidden ? 'Prikaži točno rješenje' : 'Sakrij točno rješenje';
+    if (!$('solPanel').hidden) renderSolution(true);
+  };
+  $('sReset').onclick = function () { solStep = 0; renderSolution(false); };
+  $('sBack').onclick = function () { if (solStep > 0) solStep--; renderSolution(false); };
+  $('sNext').onclick = function () { if (solStep < solMax) solStep++; renderSolution(false); };
+  $('sEnd').onclick = function () { solStep = solMax; renderSolution(false); };
+
+  /* ------------------------------------------------ primjeri */
+  var ph = $('presets');
+  PRESETS.forEach(function (p, idx) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip ex'; b.textContent = p.name;
+    b.onclick = function () {
+      $('re').value = p.re;
+      $('mode').value = p.mode;
+      $('taskdesc').textContent = p.desc;
+      Array.prototype.forEach.call(ph.querySelectorAll('.ex'), function (x, j) { x.classList.toggle('sel', j === idx); });
+      $('verdict').innerHTML = '';
+      updateTarget();
+    };
+    ph.appendChild(b);
+  });
+
+  $('re').addEventListener('input', function () {
+    $('taskdesc').textContent = '';
+    Array.prototype.forEach.call(ph.querySelectorAll('.ex'), function (x) { x.classList.remove('sel'); });
+    $('verdict').innerHTML = '';
+    updateTarget();
+  });
+  $('mode').addEventListener('change', function () {
+    updateAlphabetChips();
+    $('verdict').innerHTML = '';
+    if (!$('solPanel').hidden) renderSolution(true);
+  });
+
+  ph.querySelectorAll('.ex')[0].classList.add('sel');
+  $('taskdesc').textContent = PRESETS[0].desc;
+  updateTarget();
+  renderCanvas();
+  runTest();
+})();
+</script>
+</body>
+</html>

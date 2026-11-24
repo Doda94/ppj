@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generator ispitnih zadataka (Leksička analiza) — PPJ</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+  .small { font-size: 13px; }
+  .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .scorebar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .badge { display: inline-block; padding: 3px 11px; border-radius: 999px; border: 1px solid var(--line);
+    font: 600 13px var(--sans); color: var(--muted); background: var(--bg); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.err { color: var(--err); border-color: var(--err); }
+  .qbox { border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--bg); margin-top: 10px; }
+  .qbox h3 { margin: 0 0 8px; font-size: 15px; color: var(--accent); }
+  .qcode { font: 14px/1.6 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow-x: auto; white-space: pre-wrap; margin: 8px 0; }
+  .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 6px; margin: 8px 0; }
+  .gwrap svg { display: block; margin: 0 auto; }
+  svg .arr { fill: var(--muted); }
+  svg .ring { fill: none; stroke: var(--ink); stroke-width: 1.2; }
+  svg .nid { font-size: 12px; }
+  svg .lbl { font-size: 12px; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+  .ans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 10px 0; }
+  .fb { border-left: 4px solid var(--line); background: var(--panel); padding: 10px 12px; border-radius: 8px; margin-top: 10px; }
+  .fb.ok { border-left-color: var(--ok); }
+  .fb.err { border-left-color: var(--err); }
+  .tblwrap { overflow-x: auto; margin-top: 8px; }
+  @media (max-width: 520px) { .wrap { padding: 12px 10px 36px; } .btn { padding: 6px 9px; font-size: 13px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Generator zadataka — leksička analiza</h1>
+  <p class="lead">Generira neograničeno novih zadataka iz leksičke analize (grupiranje jedinki, tablice znakova, kazaljke simulatora, pisanje regularnih izraza, ε-okruženje i oporavak od pogreške) s automatskom ocjenom i objašnjenjem.</p>
+
+  <section class="panel">
+    <div class="row" style="gap:10px">
+      <div style="flex:1;min-width:210px">
+        <label for="cat">Tip zadatka</label>
+        <select id="cat">
+          <option value="mix">Miješano (svi tipovi)</option>
+          <option value="lex">1. Grupiranje jedinki (P2, P3, r/r′)</option>
+          <option value="tables">2. Tablice (Uniformni, KROS, IDN, KON)</option>
+          <option value="sim">3. Kazaljke simulatora (Početak/Završetak/Posljednji/Izraz)</option>
+          <option value="regex">4. Napiši regularni izraz (provjera produkt-automatom)</option>
+          <option value="eps">5. ε-okruženje i prijelaz ε-NKA</option>
+          <option value="err">6. Oporavak od pogreške i kontekst</option>
+        </select>
+      </div>
+      <div style="align-self:flex-end">
+        <button class="btn primary" type="button" id="bNew">Novi zadatak ↻</button>
+      </div>
+    </div>
+
+    <div class="scorebar" style="margin-top:10px">
+      <span class="badge ok" id="sOk">Točno: 0</span>
+      <span class="badge err" id="sErr">Netočno: 0</span>
+      <span class="badge" id="sStreak">Niz: 0</span>
+      <span class="badge" id="sAcc">Uspješnost: —</span>
+    </div>
+  </section>
+
+  <section class="panel" id="taskPanel">
+    <div id="taskHost"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" type="button" id="bGrade">Ocijeni odgovor</button>
+      <button class="btn" type="button" id="bReveal">Prikaži rješenje</button>
+    </div>
+    <div id="fbHost"></div>
+  </section>
+
+  <p class="footer"><a href="../../index.html">← sve simulacije</a></p>
+</div>
+
+<script src="../../assets/regex.js"></script>
+<script src="../../assets/automata-check.js"></script>
+<script>
+(function () {
+  'use strict';
+  var RX = window.PPJ_Regex;
+  var AC = window.PPJ_AutomataCheck;
+  var esc = RX.escXml, vis = RX.vis, fmt = RX.fmtSet;
+  function $(id) { return document.getElementById(id); }
+
+  function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function shuffle(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  var stats = { ok: 0, err: 0, streak: 0 };
+  var currentTask = null;
+  var gradedCurrent = false;
+
+  function updateStats(isOk) {
+    if (gradedCurrent) return;
+    gradedCurrent = true;
+    if (isOk) { stats.ok++; stats.streak++; }
+    else { stats.err++; stats.streak = 0; }
+    $('sOk').textContent = 'Točno: ' + stats.ok;
+    $('sErr').textContent = 'Netočno: ' + stats.err;
+    $('sStreak').textContent = 'Niz: ' + stats.streak;
+    var tot = stats.ok + stats.err;
+    $('sAcc').textContent = 'Uspješnost: ' + (tot ? Math.round(stats.ok * 100 / tot) + '%' : '—');
+  }
+
+  // Pomoćna funkcija za točnu leksičku analizu s opcionalnim lookaheadom r/r'
+  function lexWithLookahead(rules, input) {
+    var compiled = rules.map(function (r) {
+      var pFull = RX.parse(r.look ? (r.src + r.look) : r.src);
+      var dFull = RX.buildDFA(RX.thompson(pFull.ast).nfa);
+      var dMain = r.look ? RX.buildDFA(RX.thompson(RX.parse(r.src).ast).nfa) : dFull;
+      return { name: r.name, src: r.src, look: r.look || null, dFull: dFull, dMain: dMain };
+    });
+    var pos = 0, out = [], steps = [];
+    while (pos < input.length) {
+      var rest = input.slice(pos);
+      var bestLen = 0, bestRule = null, bestLex = '';
+      for (var i = 0; i < compiled.length; i++) {
+        var r = compiled[i];
+        var tr = RX.runDFA(r.dFull, rest).trace;
+        var len = 0;
+        for (var k = 1; k < tr.length; k++) {
+          if (tr[k].q >= 0 && r.dFull.states[tr[k].q].accepting) len = k;
+        }
+        if (len > bestLen) {
+          bestLen = len;
+          bestRule = r;
+          if (r.look) {
+            var trM = RX.runDFA(r.dMain, rest.slice(0, len)).trace;
+            var lm = 0;
+            for (var m = 1; m < trM.length; m++) {
+              if (trM[m].q >= 0 && r.dMain.states[trM[m].q].accepting) lm = m;
+            }
+            bestLex = rest.slice(0, lm);
+          } else {
+            bestLex = rest.slice(0, len);
+          }
+        }
+      }
+      if (!bestRule) {
+        out.push({ error: true, lex: rest[0], rule: 'ERR' });
+        steps.push('Pozicija ' + (pos + 1) + ': nijedan prefiks nije prihvaćen → odbacuje se "' + rest[0] + '".');
+        pos += 1;
+      } else {
+        out.push({ error: false, lex: bestLex, rule: bestRule.name });
+        steps.push('Pozicija ' + (pos + 1) + ': najdulji prefiks "' + bestLex + '"' +
+          (bestRule.look ? ' (uz desni kontekst "' + bestRule.look + '")' : '') + ' → pravilo ' + bestRule.name + '.');
+        pos += bestLex.length;
+      }
+    }
+    return { out: out, steps: steps };
+  }
+
+  /* ------------------------------------------------ 1. Grupiranje jedinki */
+  function genLexTask() {
+    var kws = shuffle(['ako', 'dok', 'za', 'pi', 'sve', 'od']).slice(0, 2);
+    var useLook = Math.random() < 0.5;
+    var rules, input;
+    if (!useLook) {
+      var ops = pick([['==', '='], ['<=', '<'], ['++', '+']]);
+      rules = [
+        { name: 'r1', src: '[a-z]+[0-9]*', disp: '(a|b|…|z)+(0|1|…|9)*' },
+        { name: 'r2', src: '[0-9]+', disp: '(0|1|…|9)+' },
+        { name: 'r3', src: kws[0], disp: kws[0] },
+        { name: 'r4', src: kws[1], disp: kws[1] },
+        { name: 'r5', src: ops[0].replace(/[+]/g, '\\+'), disp: ops[0] },
+        { name: 'r6', src: ops[1].replace(/[+]/g, '\\+'), disp: ops[1] }
+      ];
+      var w1 = kws[0] + randInt(1, 9);
+      var w2 = kws[1] + pick(['a', 'b', 'x', 'm']) + pick(['c', 'n', 'k']);
+      var w3 = pick([ops[0], ops[1]]);
+      var w4 = String(randInt(2, 95));
+      input = w1 + ops[1] + w2 + w3 + w4;
+    } else {
+      var laWord = pick(['jedan', 'dva', 'tri', 'pet']);
+      var laDigit = { jedan: '1', dva: '2', tri: '3', pet: '5' }[laWord];
+      var laWord2 = pick(['cetiri', 'sest'].filter(function (x) { return x !== laWord; }));
+      var laDigit2 = { cetiri: '4', sest: '6' }[laWord2];
+      rules = [
+        { name: 'r1', src: laWord, look: laDigit, disp: laWord + ' / ' + laDigit },
+        { name: 'r2', src: laWord2, look: laDigit2, disp: laWord2 + ' / ' + laDigit2 },
+        { name: 'r3', src: '[a-z]*[0-9]*', disp: '(a|b|…|z)*(0|1|…|9)*' }
+      ];
+      input = pick([
+        laWord + laDigit + laWord2 + randInt(7, 9),
+        pick(['ab', 'xy']) + laWord + laDigit + laDigit2 + laWord2,
+        laWord + laDigit + laWord + randInt(7, 9)
+      ]);
+    }
+    var solved = lexWithLookahead(rules, input);
+    var expectedLex = solved.out.map(function (x) { return x.lex; });
+    var expectedRules = solved.out.map(function (x) { return x.rule; });
+
+    return {
+      title: '1 · Grupiranje u leksičke jedinke',
+      render: function (host) {
+        var rh = '<table class="t"><thead><tr><th>Oznaka</th><th>Regularni izraz</th></tr></thead><tbody>';
+        rules.forEach(function (r) { rh += '<tr><td><b>' + r.name + '</b></td><td><code>' + esc(r.disp) + '</code></td></tr>'; });
+        rh += '</tbody></table>';
+        host.innerHTML =
+          '<p>Zadana su pravila leksičkog analizatora navedenim redoslijedom:</p>' + rh +
+          '<p style="margin-top:10px">Kako se ulazni niz <code>' + esc(input) + '</code> grupira u leksičke jedinke? (Upiši jedinke odvojene zarezom, npr. <code>abc, =, 5</code>)</p>' +
+          '<input type="text" id="ansLex" placeholder="jedinka1, jedinka2, …" autocomplete="off" spellcheck="false">';
+      },
+      grade: function () {
+        var raw = ($('ansLex') ? $('ansLex').value : '').trim();
+        var got = raw ? raw.split(/\s*,\s*/).filter(Boolean) : [];
+        var ok = got.length === expectedLex.length && got.every(function (v, i) { return v === expectedLex[i]; });
+        return {
+          ok: ok,
+          answerHtml: '<b>Jedinke:</b> <code>' + esc(expectedLex.join(', ')) + '</code> (pravila: <code>' + esc(expectedRules.join(', ')) + '</code>)' +
+            '<ul class="small" style="margin:6px 0 0;padding-left:18px">' + solved.steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ul>'
+        };
+      }
+    };
+  }
+
+  /* ------------------------------------------------ 2. Tablice (Uniformni, KROS, IDN, KON) */
+  function genTablesTask() {
+    var vars = shuffle(['cijena', 'suma', 'brojac', 'rez', 'x', 'y', 'alfa']).slice(0, 3);
+    var v1 = vars[0], v2 = vars[1], v3 = vars[2];
+    var c1 = String(randInt(10, 99)), c2 = String(randInt(2, 9)), c3 = '0.' + randInt(1, 9);
+    var kw = pick(['ako', 'dok']);
+    var op = pick(['<', '>', '<=', '==']);
+    var code =
+      'int ' + v1 + ' = ' + c1 + ';\n' +
+      kw + ' ( ' + v1 + ' ' + op + ' ' + c2 + ' ) {\n' +
+      '    ' + v2 + ' = ' + v1 + ' * ' + c3 + ';\n' +
+      '    ' + v3 + ' = ' + v1 + ' + ' + c2 + ';\n' +
+      '}';
+    var tokens = [
+      ['KROS', 'int'], ['IDN', v1], ['KROS', '='], ['KON', c1], ['KROS', ';'],
+      ['KROS', kw], ['KROS', '('], ['IDN', v1], ['KROS', op], ['KON', c2], ['KROS', ')'], ['KROS', '{'],
+      ['IDN', v2], ['KROS', '='], ['IDN', v1], ['KROS', '*'], ['KON', c3], ['KROS', ';'],
+      ['IDN', v3], ['KROS', '='], ['IDN', v1], ['KROS', '+'], ['KON', c2], ['KROS', ';'],
+      ['KROS', '}']
+    ];
+    var krosSet = {}, idnSet = {}, konSet = {};
+    tokens.forEach(function (t) {
+      if (t[0] === 'KROS') krosSet[t[1]] = true;
+      if (t[0] === 'IDN') idnSet[t[1]] = true;
+      if (t[0] === 'KON') konSet[t[1]] = true;
+    });
+    var ans = {
+      uni: tokens.length,
+      kros: Object.keys(krosSet).length,
+      idn: Object.keys(idnSet).length,
+      kon: Object.keys(konSet).length
+    };
+
+    return {
+      title: '2 · Tablice leksičkog analizatora',
+      render: function (host) {
+        host.innerHTML =
+          '<p>Promotri sljedeći programski odsječak (ključne riječi su <code>int</code> i <code>' + kw + '</code>; operatori i specijalni znakovi su <code>= ; ( ) { } * + ' + esc(op) + '</code>):</p>' +
+          '<div class="qcode">' + esc(code) + '</div>' +
+          '<div class="ans-grid">' +
+          '<div><label for="tUni">Redaka u tablici uniformnih znakova</label><input type="text" id="tUni" autocomplete="off"></div>' +
+          '<div><label for="tKros">Različitih elemenata iz KROS-a</label><input type="text" id="tKros" autocomplete="off"></div>' +
+          '<div><label for="tIdn">Zapisa u tablici identifikatora</label><input type="text" id="tIdn" autocomplete="off"></div>' +
+          '<div><label for="tKon">Zapisa u tablici konstanti</label><input type="text" id="tKon" autocomplete="off"></div>' +
+          '</div>';
+      },
+      grade: function () {
+        var u = +$('tUni').value.trim(), k = +$('tKros').value.trim(), id = +$('tIdn').value.trim(), co = +$('tKon').value.trim();
+        var ok = u === ans.uni && k === ans.kros && id === ans.idn && co === ans.kon;
+        return {
+          ok: ok,
+          answerHtml:
+            '<b>Uniformni znakovi:</b> ' + ans.uni + ' (svako pojavljivanje jedinke u kodu) · ' +
+            '<b>KROS:</b> ' + ans.kros + ' (<code>' + esc(Object.keys(krosSet).join(', ')) + '</code>) · ' +
+            '<b>IDN:</b> ' + ans.idn + ' (<code>' + esc(Object.keys(idnSet).join(', ')) + '</code>) · ' +
+            '<b>KON:</b> ' + ans.kon + ' (<code>' + esc(Object.keys(konSet).join(', ')) + '</code>).'
+        };
+      }
+    };
+  }
+
+  /* ------------------------------------------------ 3. Kazaljke simulatora */
+  function genSimTask() {
+    var words = shuffle(['iva', 'ana', 'marko', 'luka', 'pero', 'dora', 'tina']).slice(0, 2);
+    var r1 = words[0], r2 = words[1];
+    var tail = pick(['xyz', 'qwe', 'mno']);
+    var input = r1 + tail + r2;
+    var k = r1.length; // točno na kraju r1!
+    var lx = RX.buildLexer([{ src: r1, cls: 'R1' }, { src: r2, cls: 'R2' }]);
+    var lt = RX.lexTrace(lx, input, 30);
+    // Pronađi read korak gdje je zavrsetak === k
+    var targetStep = lt.steps.filter(function (s) { return s.kind === 'read' && s.zavrsetak === k; })[0];
+
+    return {
+      title: '3 · Kazaljke simulatora (Početak, Završetak, Posljednji, Izraz)',
+      render: function (host) {
+        host.innerHTML =
+          '<p>Simulator prepoznaje pravila <code>r1 = ' + esc(r1) + '</code> i <code>r2 = ' + esc(r2) + '</code>. ' +
+          'Na ulazu je niz <code>' + esc(input) + '</code> (indeksiranje počinje od <b>1</b>).</p>' +
+          '<p>Upiši vrijednosti kazaljki <b>odmah nakon čitanja znaka <code>' + esc(input[k - 1]) + '</code> na indeksu ' + k + '</b> (u tom koraku prihvaća pravilo r1):</p>' +
+          '<div class="ans-grid">' +
+          '<div><label for="sP">Početak</label><input type="text" id="sP" autocomplete="off"></div>' +
+          '<div><label for="sZ">Završetak</label><input type="text" id="sZ" autocomplete="off"></div>' +
+          '<div><label for="sL">Posljednji</label><input type="text" id="sL" autocomplete="off"></div>' +
+          '<div><label for="sI">Izraz (broj pravila, npr. 1)</label><input type="text" id="sI" autocomplete="off"></div>' +
+          '</div>';
+      },
+      grade: function () {
+        var p = +$('sP').value.trim(), z = +$('sZ').value.trim(), l = +$('sL').value.trim();
+        var iRaw = $('sI').value.trim().toLowerCase().replace(/^r/, '');
+        var iv = +iRaw;
+        var ok = p === targetStep.pocetak && z === targetStep.zavrsetak && l === targetStep.posljednji && iv === targetStep.izraz;
+        return {
+          ok: ok,
+          answerHtml:
+            '<b>Početak = ' + targetStep.pocetak + ', Završetak = ' + targetStep.zavrsetak +
+            ', Posljednji = ' + targetStep.posljednji + ', Izraz = ' + targetStep.izraz + ' (r' + targetStep.izraz + ')</b>.<br>' +
+            '<span class="small">Objašnjenje: nakon znaka <code>' + esc(input[k - 1]) + '</code> na indeksu ' + k +
+            ', pravilo r1 prihvaća prefiks <code>' + esc(r1) + '</code>, pa se <code>Posljednji</code> postavlja na ' + k + ', a <code>Izraz = 1</code>. ' +
+            '<code>Početak</code> ostaje 1 sve dok čitanje ne stane na sljedećem znaku (<code>' + esc(input[k]) + '</code>) i ne izda se jedinka.</span>'
+        };
+      }
+    };
+  }
+
+  /* ------------------------------------------------ 4. Pisanje regularnog izraza */
+  function genRegexTask() {
+    var specs = [
+      function () {
+        var a = pick(['a', 'x']), b = pick(['b', 'y']), c = pick(['c', 'z']);
+        return {
+          desc: 'Identifikatori koji počinju znakom <code>' + a + '</code> ili <code>' + b + '</code> i nastavljaju se proizvoljno dugim nizom znakova <code>' + a + ', ' + b + ', ' + c + '</code> (uključujući prazan nastavak).',
+          target: '(' + a + '|' + b + ')(' + a + '|' + b + '|' + c + ')*'
+        };
+      },
+      function () {
+        return {
+          desc: 'Oktalne cjelobrojne konstante koje obavezno počinju znamenkom <code>0</code> (npr. <code>0</code>, <code>07</code>, <code>0125</code>).',
+          target: '0[0-7]*'
+        };
+      },
+      function () {
+        var d = pick(['0', '1']), e = d === '0' ? '1' : '0';
+        return {
+          desc: 'Svi binarni nizovi nad <code>{0, 1}</code> koji završavaju podnizom <code>' + d + e + '</code>.',
+          target: '(0|1)*' + d + e
+        };
+      },
+      function () {
+        var w = pick(['ako', 'dok', 'za']);
+        return {
+          desc: 'Ključna riječ <code>' + w + '</code> neovisna o veličini prvog slova (npr. <code>' + w + '</code> ili <code>' + w[0].toUpperCase() + w.slice(1) + '</code>).',
+          target: '(' + w[0] + '|' + w[0].toUpperCase() + ')' + w.slice(1)
+        };
+      },
+      function () {
+        return {
+          desc: 'Nizovi nad <code>{a, b}</code> koji imaju najmanje jedan <code>a</code> i nakon svakog <code>a</code> može biti bilo koliko <code>b</code> (ili jednostavnije: počinju s <code>b*a</code> i završavaju bilo čime nad <code>{a,b}</code>).',
+          target: '(a|b)*a(a|b)*'
+        };
+      }
+    ];
+    var sp = pick(specs)();
+
+    return {
+      title: '4 · Napiši regularni izraz',
+      render: function (host) {
+        host.innerHTML =
+          '<p>Opiši sljedeće leksičko pravilo regularnim izrazom (koristi <code>|</code> za uniju, <code>*</code>, <code>+</code>, <code>?</code>, <code>[0-7]</code>, <code>( )</code>):</p>' +
+          '<div class="qcode">' + sp.desc + '</div>' +
+          '<input type="text" id="ansRe" placeholder="npr. (a|b)(a|b|c)*" autocomplete="off" autocapitalize="off" spellcheck="false">';
+      },
+      grade: function () {
+        var got = ($('ansRe') ? $('ansRe').value : '').trim();
+        if (!got) return { ok: false, answerHtml: 'Upiši regularni izraz. Jedno točno rješenje: <code>' + esc(sp.target) + '</code>' };
+        try {
+          var p = RX.parse(got);
+          var th = RX.thompson(p.ast);
+          var userAuto = {
+            states: Array.from({ length: th.nfa.n }, function (_, i) {
+              return { id: i, label: 'q' + i, start: i === th.nfa.start, accepting: i === th.nfa.accept };
+            }),
+            transitions: th.nfa.edges.map(function (e) {
+              return { from: e.from, to: e.to, label: e.set ? RX.describeSet(e.set) : 'ε' };
+            })
+          };
+          var eq = AC.checkEquivalence(sp.target, userAuto, 'nfa');
+          if (eq.equivalent) {
+            return { ok: true, answerHtml: 'Tvoj izraz je u potpunosti ekvivalentan ciljanom jeziku! (Jedno rješenje: <code>' + esc(sp.target) + '</code>)' };
+          }
+          return {
+            ok: false,
+            answerHtml: esc(eq.reason) + '<br>Jedno točno rješenje: <code>' + esc(sp.target) + '</code>'
+          };
+        } catch (e) {
+          return { ok: false, answerHtml: 'Sintaksna greška u izrazu: ' + esc(e.message) + '<br>Jedno točno rješenje: <code>' + esc(sp.target) + '</code>' };
+        }
+      }
+    };
+  }
+
+  /* ------------------------------------------------ 5. ε-okruženje i prijelaz ε-NKA */
+  function genEpsTask() {
+    var resList = ['a*b', '(a|b)*', 'a(b|c)*', '(a|b)+', 'a?b+'];
+    var re = pick(resList);
+    var th = RX.thompson(RX.parse(re).ast);
+    var ch = pick(re.indexOf('b') >= 0 ? ['a', 'b'] : ['a']);
+    var R0 = RX.epsClosure(th.nfa, [th.nfa.start]);
+    var R1 = RX.stepNFA(th.nfa, R0, ch.codePointAt(0));
+    var askStep = Math.random() < 0.6;
+    var want = askStep ? R1 : R0;
+
+    return {
+      title: '5 · ε-okruženje i prijelaz simulatora ε-NKA',
+      render: function (host) {
+        host.innerHTML =
+          '<p>Zadan je ε-NKA za regularni izraz <code>' + esc(re) + '</code>:</p>' +
+          '<div class="gwrap">' + RX.renderScene(RX.nfaScene(th), { id: 'ge', label: 'ε-NKA' }) + '</div>' +
+          '<p>' + (askStep
+            ? 'Ako je trenutni skup aktivnih stanja <code>R = ' + esc(fmt(R0)) + '</code>, koji će skup stanja <code>R′ = ε-okruženje(δ(R, ' + esc(ch) + '))</code> biti nakon čitanja znaka <code>' + esc(ch) + '</code>?'
+            : 'Koliko iznosi početni skup stanja <code>R = ε-okruženje({' + th.nfa.start + '})</code>?') + '</p>' +
+          '<input type="text" id="ansEps" placeholder="npr. 0, 1, 2 (ili ∅)" autocomplete="off" spellcheck="false">';
+      },
+      grade: function () {
+        var s = ($('ansEps') ? $('ansEps').value : '').replace(/[{}]/g, '').trim();
+        var got = (!s || s === '∅' || s === '-') ? [] : s.split(/[\s,;]+/).filter(Boolean).map(Number);
+        got = Array.from(new Set(got)).sort(function (a, b) { return a - b; });
+        var ok = got.length === want.length && got.every(function (v, i) { return v === want[i]; });
+        return {
+          ok: ok,
+          answerHtml: 'Točan skup: <code>' + esc(fmt(want)) + '</code>.' +
+            (askStep ? ('<br><span class="small">Međukorak: δ(' + esc(fmt(R0)) + ', ' + esc(ch) + ') = ' + esc(fmt(RX.moveChar(th.nfa, R0, ch.codePointAt(0)))) + ', zatim ε-okruženje daje ' + esc(fmt(R1)) + '.</span>') : '')
+        };
+      }
+    };
+  }
+
+  /* ------------------------------------------------ 6. Oporavak od pogreške i kontekst */
+  function genErrTask() {
+    var bank = [
+      {
+        q: 'Zadan je ulazni niz u kojem nijedan prefiks nije definiran zadanim regularnim izrazima. Što radi najjednostavniji postupak oporavka od pogreške?',
+        opts: [
+          'Odbacuje krajnje lijevi znak niza i nastavlja analizu od sljedećeg znaka',
+          'Odbacuje krajnje desni znak niza i ponavlja analizu',
+          'Zaustavlja rad čitavog prevoditelja bez daljnje analize',
+          'Ubacuje prazni znak ε na kraj niza'
+        ],
+        ans: 0,
+        expl: 'Prema odjeljku 2.9.5, najjednostavniji oporavak odbacuje i ispisuje krajnje lijevi znak koji nema valjani prefiks, te nastavlja analizu ostatkom niza.'
+      },
+      {
+        q: 'Kojim se postupkom u specifikaciji leksičkog analizatora ostvaruje pretraživanje desnog konteksta?',
+        opts: [
+          'Regularnim izrazima oblika r / r′',
+          'Dodatnim stanjima simulatora i naredbom ODBACI',
+          'Potisnim automatom',
+          'Tablicom Pomakni/Reduciraj'
+        ],
+        ans: 0,
+        expl: 'Desni kontekst zadaje se kao r / r′: prepoznaje se r samo ako iza njega slijedi r′ (knjiga 2.9.9).'
+      },
+      {
+        q: 'Kojim se mehanizmom u leksičkom analizatoru najčešće ostvaruje pretraživanje lijevog konteksta?',
+        opts: [
+          'Dodatnim stanjima simulatora (npr. <STANJE> r) i naredbom ODBACI',
+          'Regularnim izrazima oblika r / r′',
+          'Isključivo sintaksnim stablom',
+          'Uklanjanjem tablice KROS'
+        ],
+        ans: 0,
+        expl: 'Lijevi kontekst pamti se dodatnim stanjima simulatora (u Lexu Start stanja i BEGIN), često uz naredbu ODBACI / REJECT (knjiga 2.9.8–2.9.9).'
+      },
+      {
+        q: 'Pri računanju skupa ε-okruženja pomoću stoga i dvaju bit-vektora X i Y, kolika je duljina svakog bit-vektora?',
+        opts: [
+          'Jednaka broju stanja ε-NKA',
+          'Jednaka broju znakova abecede',
+          'Jednaka broju regularnih izraza',
+          'Jednaka kvadratu broja stanja DKA'
+        ],
+        ans: 0,
+        expl: 'Bit-vektori X i Y predstavljaju podskupove stanja ε-NKA, pa svaki ima po jedan bit za svako stanje ε-NKA (knjiga 2.9.7, str. 61).'
+      }
+    ];
+    var item = pick(bank);
+    var order = shuffle([0, 1, 2, 3]);
+    var correctPos = order.indexOf(item.ans);
+
+    return {
+      title: '6 · Oporavak od pogreške i kontekst',
+      render: function (host) {
+        var h = '<p>' + esc(item.q) + '</p><div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">';
+        order.forEach(function (origIdx, pos) {
+          h += '<label style="display:flex;gap:8px;align-items:flex-start;color:var(--ink);font-size:14px;cursor:pointer">' +
+            '<input type="radio" name="errOpt" value="' + pos + '" style="margin-top:4px"> <span>' + esc(item.opts[origIdx]) + '</span></label>';
+        });
+        host.innerHTML = h + '</div>';
+      },
+      grade: function () {
+        var sel = document.querySelector('input[name="errOpt"]:checked');
+        var ok = sel && (+sel.value === correctPos);
+        return {
+          ok: !!ok,
+          answerHtml: '<b>Točan odgovor:</b> ' + esc(item.opts[item.ans]) + '<br><span class="small">' + esc(item.expl) + '</span>'
+        };
+      }
+    };
+  }
+
+  var GENERATORS = {
+    lex: genLexTask,
+    tables: genTablesTask,
+    sim: genSimTask,
+    regex: genRegexTask,
+    eps: genEpsTask,
+    err: genErrTask
+  };
+
+  function newTask() {
+    var cat = $('cat').value;
+    if (cat === 'mix') cat = pick(Object.keys(GENERATORS));
+    currentTask = GENERATORS[cat]();
+    gradedCurrent = false;
+    $('fbHost').innerHTML = '';
+    $('taskHost').innerHTML = '<div class="qbox"><h3>' + esc(currentTask.title) + '</h3><div id="qInner"></div></div>';
+    currentTask.render($('qInner'));
+  }
+
+  $('bNew').onclick = newTask;
+  $('cat').onchange = newTask;
+
+  $('bGrade').onclick = function () {
+    if (!currentTask) return;
+    var r = currentTask.grade();
+    updateStats(r.ok);
+    $('fbHost').innerHTML = '<div class="fb ' + (r.ok ? 'ok' : 'err') + '"><b>' + (r.ok ? 'Točno ✓' : 'Netočno ✗') + '</b><br>' + r.answerHtml + '</div>';
+  };
+
+  $('bReveal').onclick = function () {
+    if (!currentTask) return;
+    var r = currentTask.grade();
+    $('fbHost').innerHTML = '<div class="fb"><b>Rješenje:</b><br>' + r.answerHtml + '</div>';
+  };
+
+  newTask();
+})();
+</script>
+</body>
+</html>

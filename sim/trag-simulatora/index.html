@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trag simulatora leksičkog analizatora — PPJ</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+  .small { font-size: 13px; }
+  .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--sans); font-size: 13px; padding: 3px 10px; }
+  .ex:hover, .ex.sel { border-color: var(--accent); }
+  .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .rrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); }
+  .rrow:first-child { border-top: 0; }
+  .rrow .rn { font: 700 13px var(--mono); min-width: 28px; color: var(--accent); }
+  .rrow input[type=text] { width: auto; }
+  .rrow .re { flex: 2 1 160px; min-width: 110px; }
+  .rrow .cl { flex: 1 1 100px; min-width: 80px; }
+  .rrow .btn { padding: 4px 8px; }
+  .strip { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0; align-items: flex-start; }
+  .strip .cell { display: flex; flex-direction: column; align-items: center; min-width: 28px; }
+  .strip .pos { font: 10px var(--mono); color: var(--muted); }
+  .strip .c { width: 100%; text-align: center; padding: 3px 5px; border: 1px solid var(--line); border-radius: 5px; font: 15px var(--mono); background: var(--bg); }
+  .tblwrap { overflow-x: auto; margin: 8px 0; }
+  table.t input.tin {
+    width: 100%; min-width: 54px; padding: 4px 6px; border: 1.5px solid var(--line); border-radius: 5px;
+    background: var(--bg); color: var(--ink); font: 13px var(--mono);
+  }
+  table.t input.tin.wide { min-width: 115px; }
+  table.t .ok-cell { border-color: var(--ok) !important; background: color-mix(in srgb, var(--ok) 12%, var(--bg)) !important; }
+  table.t .err-cell { border-color: var(--err) !important; background: color-mix(in srgb, var(--err) 12%, var(--bg)) !important; }
+  .feedback { border-left: 4px solid var(--accent); background: var(--bg); padding: 9px 12px; border-radius: 6px; margin-top: 8px; font-size: 13.5px; }
+  .feedback.ok { border-left-color: var(--ok); }
+  .feedback.err { border-left-color: var(--err); }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line);
+    font: 600 13px var(--sans); color: var(--muted); background: var(--bg); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  details summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+  @media (max-width: 520px) { .wrap { padding: 12px 10px 36px; } .btn { padding: 6px 9px; font-size: 13px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Trag simulatora (Početak / Završetak / Posljednji / Izraz)</h1>
+  <p class="lead">Prati algoritam simulatora iz knjige (odjeljci 2.9.6 i 2.9.7, slika 2.21) i sam popuni tablicu kazaljki, aktivnih stanja i izlaznih jedinki korak po korak.</p>
+
+  <section class="panel">
+    <h2>1 · Pravila i ulazni niz</h2>
+    <div class="row" id="presets" style="gap:6px;margin-bottom:10px"></div>
+    <div id="rules"></div>
+    <div class="row" style="margin-top:8px;gap:8px">
+      <button class="btn" type="button" id="addRule">+ Dodaj pravilo</button>
+      <div style="flex:1;min-width:170px">
+        <select id="simMode" aria-label="Model automata">
+          <option value="dfa">Simulator DKA (stanje D0, D1…)</option>
+          <option value="nfa">Simulator ε-NKA (skup stanja R)</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:10px">
+      <label for="inp">Ulazni niz (1-bazirano indeksiranje kao u knjizi)</label>
+      <input type="text" id="inp" value="ako1=ako" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="strip" id="strip"></div>
+
+    <details style="margin-top:8px">
+      <summary>Prikaži tablicu prijelaza automata (za očitavanje R / q′)</summary>
+      <div class="tblwrap" id="transTbl"></div>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2>2 · Popuni tablicu koraka simulatora</h2>
+    <p class="small muted" style="margin:0 0 8px">
+      Indeksi znakova počinju od <b>1</b>. Ako nijedno pravilo još ne prihvaća prefiks, <code>Izraz = 0</code> i <code>Posljednji = 0</code> (ili <code>—</code>). Za pravilo upiši npr. <code>r1</code> ili <code>1</code>.
+    </p>
+    <div class="row" style="gap:6px;margin-bottom:8px">
+      <button class="btn primary" type="button" id="bCheckStep">Provjeri trenutni korak</button>
+      <button class="btn" type="button" id="bHintStep">Pomoć za korak</button>
+      <button class="btn" type="button" id="bShowAll">Prikaži cijeli trag</button>
+      <button class="btn" type="button" id="bResetTrace">Isprazni trag</button>
+      <span class="badge" id="stepBadge">Korak 0 / 0</span>
+    </div>
+
+    <div class="tblwrap" id="traceTbl"></div>
+    <div class="feedback" id="fb">Popuni redak <b>Korak 1</b> pa klikni „Provjeri trenutni korak“.</div>
+
+    <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
+      <label for="outGuess">3 · Izlazne jedinke (upiši niz oznaka pravila odvojen zarezom ili razmakom, npr. <code>r2, r3, r1</code>)</label>
+      <div class="row" style="gap:8px">
+        <input type="text" id="outGuess" placeholder="npr. r2, r3, r1" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:170px">
+        <button class="btn primary" type="button" id="bCheckOut">Provjeri izlaz</button>
+      </div>
+      <div id="outFb" class="small" style="margin-top:6px"></div>
+    </div>
+  </section>
+
+  <p class="footer"><a href="../../index.html">← sve simulacije</a> · <a href="../lex-generator/">Vizualni simulator Lexa →</a></p>
+</div>
+
+<script src="../../assets/regex.js"></script>
+<script src="../../assets/automata-check.js"></script>
+<script>
+(function () {
+  'use strict';
+  var RX = window.PPJ_Regex;
+  var AC = window.PPJ_AutomataCheck;
+  var esc = RX.escXml, vis = RX.vis, fmt = RX.fmtSet;
+  function $(id) { return document.getElementById(id); }
+
+  var PRESETS = [
+    { name: 'Ključna riječ vs IDN', mode: 'dfa', input: 'ako1=ako',
+      rules: [{ src: 'ako', cls: 'KR_AKO' }, { src: '[a-z][a-z0-9]*', cls: 'IDN' }, { src: '=', cls: 'OP' }, { src: '[0-9]+', cls: 'KON' }] },
+    { name: 'Najdulji prefiks', mode: 'dfa', input: 'bbacca',
+      rules: [{ src: 'a(b|c)*a', cls: 'R1' }, { src: 'b(a|c)*b', cls: 'R2' }, { src: 'c+', cls: 'R3' }] },
+    { name: 'Vraćanje kazaljke', mode: 'dfa', input: 'abcde',
+      rules: [{ src: 'abc', cls: 'R1' }, { src: 'd', cls: 'R2' }, { src: 'e', cls: 'R3' }] },
+    { name: 'Oporavak od pogreške', mode: 'nfa', input: 'ab#12',
+      rules: [{ src: '[a-z]+', cls: 'IDN' }, { src: '[0-9]+', cls: 'KON' }] },
+    { name: 'Prefiksni operatori', mode: 'dfa', input: 'a<=b==c',
+      rules: [{ src: '==', cls: 'EQ' }, { src: '=', cls: 'ASSIGN' }, { src: '<=', cls: 'LE' }, { src: '<', cls: 'LT' }, { src: '[a-z]+', cls: 'IDN' }] }
+  ];
+
+  var rules = [];
+  var model = null; // { lx, dfa, dfaSteps, steps, tokens }
+  var shownSteps = 1; // broj prikazanih koraka nakon 0 (korak 0 je uvijek pre-popunjen)
+  var userInputs = {}; // stepIdx -> { p, z, l, i, st }
+
+  function buildCombinedDFA(lx) {
+    var acceptSet = {};
+    Object.keys(lx.acceptRule).forEach(function (s) { acceptSet[+s] = true; });
+    var nfa = { n: lx.n, start: 0, acceptSet: acceptSet, edges: lx.edges };
+    var dfa = AC.nfaToDFA(nfa, 80);
+    // Za svako DKA stanje odredi najprioritetnije prihvatljivo pravilo
+    dfa.states.forEach(function (st) {
+      var acc = [];
+      st.set.forEach(function (q) { if (lx.acceptRule[q]) acc.push(lx.acceptRule[q]); });
+      acc.sort(function (a, b) { return a - b; });
+      st.acceptRules = acc;
+      st.bestRule = acc.length ? acc[0] : 0;
+    });
+    return dfa;
+  }
+
+  function rebuild() {
+    var lx = RX.buildLexer(rules.map(function (r) { return { src: r.src, cls: r.cls, discard: false }; }));
+    var src = $('inp').value;
+    var lt = RX.lexTrace(lx, src, 60);
+    var dfa = buildCombinedDFA(lx);
+
+    // Mapiraj skup R svakog koraka u DKA stanje (jer je R uvijek ε-okruženje!)
+    var setToDfa = {};
+    dfa.states.forEach(function (st, idx) { setToDfa[st.set.join(',')] = idx; });
+
+    // Filtriramo korake da ostanu jasni ispitni koraci (read, emit, error; preskačemo redundantni stop ili spajamo)
+    var trace = [];
+    lt.steps.forEach(function (s) {
+      if (s.kind === 'done') return;
+      var rKey = s.R.join(',');
+      var dIdx = s.R.length === 0 ? -1 : (rKey in setToDfa ? setToDfa[rKey] : -1);
+      var label = s.kind === 'init' ? 'Početak'
+        : s.kind === 'read' ? ('Čitanje "' + vis(s.ch) + '"')
+        : s.kind === 'stop' ? 'Prekid (odluka)'
+        : s.kind === 'emit' ? ('Izdaj ' + (s.token ? ('r' + s.token.rule + ': "' + vis(s.token.text) + '"') : ''))
+        : s.kind === 'error' ? 'Oporavak (odbaci znak)' : s.kind;
+      trace.push({
+        kind: s.kind,
+        label: label,
+        p: s.pocetak,
+        z: s.zavrsetak,
+        l: s.posljednji,
+        i: s.izraz,
+        R: s.R,
+        dState: dIdx,
+        text: s.text
+      });
+    });
+
+    model = { lx: lx, dfa: dfa, trace: trace, tokens: lt.tokens, chars: lt.chars };
+    shownSteps = Math.min(2, trace.length);
+    userInputs = {};
+    renderStrip();
+    renderTransTable();
+    renderTrace();
+    $('outFb').innerHTML = '';
+    $('fb').className = 'feedback';
+    $('fb').innerHTML = 'Korak 0 je početno stanje. Popuni <b>Korak 1</b> pa klikni „Provjeri trenutni korak“.';
+  }
+
+  function renderStrip() {
+    var chars = model ? model.chars : [];
+    var h = '';
+    if (!chars.length) h = '<span class="muted small">(prazan ulaz)</span>';
+    chars.forEach(function (ch, idx) {
+      h += '<div class="cell"><span class="pos">' + (idx + 1) + '</span><span class="c">' + esc(vis(ch)) + '</span></div>';
+    });
+    $('strip').innerHTML = h;
+  }
+
+  function renderTransTable() {
+    if (!model) return;
+    var mode = $('simMode').value;
+    if (mode === 'dfa') {
+      var dfa = model.dfa;
+      var h = '<table class="t"><thead><tr><th>Stanje DKA</th><th>Skup ε-NKA</th><th>Pravilo</th>';
+      dfa.atoms.forEach(function (a) { h += '<th>' + esc(a.label) + '</th>'; });
+      h += '</tr></thead><tbody>';
+      dfa.states.forEach(function (st, idx) {
+        h += '<tr><td>' + (idx === 0 ? '→ ' : '') + '<b>D' + idx + '</b></td><td>' + esc(fmt(st.set)) + '</td>' +
+          '<td>' + (st.bestRule ? 'r' + st.bestRule : '—') + '</td>';
+        dfa.atoms.forEach(function (_, k) {
+          var to = dfa.trans[idx][k];
+          h += '<td>' + (to < 0 ? '∅' : 'D' + to) + '</td>';
+        });
+        h += '</tr>';
+      });
+      $('transTbl').innerHTML = h + '</tbody></table>';
+    } else {
+      var lx = model.lx;
+      var h2 = '<table class="t"><thead><tr><th>Stanje ε-NKA</th><th>ε-prijelazi</th><th>Prijelazi po znakovima</th><th>Prihvaća</th></tr></thead><tbody>';
+      var out = Array.from({ length: lx.n }, function () { return []; });
+      lx.edges.forEach(function (e) { out[e.from].push(e); });
+      for (var s = 0; s < lx.n; s++) {
+        var eps = out[s].filter(function (e) { return !e.set; }).map(function (e) { return e.to; });
+        var chs = out[s].filter(function (e) { return !!e.set; }).map(function (e) { return RX.describeSet(e.set) + '→' + e.to; });
+        h2 += '<tr><td>' + (s === 0 ? '→ ' : '') + '<b>' + s + '</b></td><td>' + (eps.length ? eps.join(', ') : '—') + '</td>' +
+          '<td>' + (chs.length ? esc(chs.join(', ')) : '—') + '</td><td>' + (lx.acceptRule[s] ? 'r' + lx.acceptRule[s] : '—') + '</td></tr>';
+      }
+      $('transTbl').innerHTML = h2 + '</tbody></table>';
+    }
+  }
+
+  function parseRuleNum(raw) {
+    var s = String(raw || '').trim().toLowerCase();
+    if (!s || s === '—' || s === '-') return 0;
+    var m = /^r?(\d+)$/.exec(s);
+    return m ? parseInt(m[1], 10) : null;
+  }
+  function parseIntCell(raw) {
+    var s = String(raw || '').trim();
+    if (s === '—' || s === '-') return 0;
+    if (!/^\d+$/.test(s)) return null;
+    return parseInt(s, 10);
+  }
+  function parseSet(raw) {
+    var s = String(raw || '').replace(/[{}]/g, '').trim();
+    if (!s || s === '∅' || s === '-') return [];
+    var pts = s.split(/[\s,;]+/).filter(Boolean);
+    var out = [], seen = {};
+    for (var i = 0; i < pts.length; i++) {
+      if (!/^\d+$/.test(pts[i])) return null;
+      var v = parseInt(pts[i], 10);
+      if (!seen[v]) { seen[v] = true; out.push(v); }
+    }
+    out.sort(function (a, b) { return a - b; });
+    return out;
+  }
+  function parseDfaState(raw) {
+    var s = String(raw || '').trim().toUpperCase();
+    if (!s) return null;
+    if (s === '∅' || s === '-' || s === '0_ZAMKA') return -1;
+    var m = /^D?(\d+)$/.exec(s);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  function validateStep(idx) {
+    var exp = model.trace[idx];
+    var u = userInputs[idx] || {};
+    var mode = $('simMode').value;
+    var res = { p: null, z: null, l: null, i: null, st: null, allOk: true };
+
+    var vp = parseIntCell(u.p);
+    res.p = vp === exp.p;
+    var vz = parseIntCell(u.z);
+    res.z = vz === exp.z;
+    var vl = parseIntCell(u.l);
+    res.l = vl === exp.l;
+    var vi = parseRuleNum(u.i);
+    res.i = vi === exp.i;
+
+    if (mode === 'dfa') {
+      var vd = parseDfaState(u.st);
+      res.st = vd === exp.dState;
+    } else {
+      var vs = parseSet(u.st);
+      res.st = !!vs && vs.length === exp.R.length && vs.every(function (x, k) { return x === exp.R[k]; });
+    }
+    res.allOk = res.p && res.z && res.l && res.i && res.st;
+    return res;
+  }
+
+  function renderTrace() {
+    if (!model) return;
+    var mode = $('simMode').value;
+    var tr = model.trace;
+    var limit = Math.min(shownSteps, tr.length);
+
+    var h = '<table class="t"><thead><tr><th>#</th><th>Događaj</th><th>Početak</th><th>Završetak</th><th>Posljednji</th><th>Izraz</th><th>' +
+      (mode === 'dfa' ? 'Stanje q′' : 'Skup R') + '</th></tr></thead><tbody>';
+
+    for (var k = 0; k < limit; k++) {
+      var s = tr[k];
+      if (k === 0) {
+        h += '<tr><td>0</td><td>' + esc(s.label) + '</td><td>' + s.p + '</td><td>' + s.z + '</td><td>' + (s.l || '0') + '</td><td>' + (s.i ? 'r' + s.i : '0') + '</td><td>' +
+          (mode === 'dfa' ? ('D' + s.dState) : esc(fmt(s.R))) + '</td></tr>';
+        continue;
+      }
+      var u = userInputs[k] || {};
+      var checked = u._checked ? validateStep(k) : null;
+      function clsFor(field) {
+        if (!checked) return '';
+        return checked[field] ? ' ok-cell' : ' err-cell';
+      }
+      h += '<tr><td>' + k + '</td><td>' + esc(s.label) + '</td>' +
+        '<td><input class="tin' + clsFor('p') + '" data-k="' + k + '" data-f="p" value="' + esc(u.p || '') + '" autocomplete="off"></td>' +
+        '<td><input class="tin' + clsFor('z') + '" data-k="' + k + '" data-f="z" value="' + esc(u.z || '') + '" autocomplete="off"></td>' +
+        '<td><input class="tin' + clsFor('l') + '" data-k="' + k + '" data-f="l" value="' + esc(u.l || '') + '" autocomplete="off"></td>' +
+        '<td><input class="tin' + clsFor('i') + '" data-k="' + k + '" data-f="i" value="' + esc(u.i || '') + '" autocomplete="off"></td>' +
+        '<td><input class="tin' + (mode === 'nfa' ? ' wide' : '') + clsFor('st') + '" data-k="' + k + '" data-f="st" value="' + esc(u.st || '') + '" placeholder="' + (mode === 'dfa' ? 'D? / ∅' : '0, 1...') + '" autocomplete="off"></td>' +
+        '</tr>';
+    }
+    h += '</tbody></table>';
+    $('traceTbl').innerHTML = h;
+
+    var curIdx = limit - 1;
+    $('stepBadge').textContent = 'Korak ' + curIdx + ' / ' + (tr.length - 1);
+    $('stepBadge').className = 'badge' + (limit === tr.length && (userInputs[curIdx] && validateStep(curIdx).allOk) ? ' ok' : '');
+
+    Array.prototype.forEach.call($('traceTbl').querySelectorAll('input.tin'), function (inp) {
+      inp.oninput = function () {
+        var k = +inp.getAttribute('data-k'), f = inp.getAttribute('data-f');
+        userInputs[k] = userInputs[k] || {};
+        userInputs[k][f] = inp.value;
+        userInputs[k]._checked = false;
+        inp.classList.remove('ok-cell', 'err-cell');
+      };
+    });
+  }
+
+  function fillStep(k) {
+    var s = model.trace[k];
+    var mode = $('simMode').value;
+    userInputs[k] = {
+      p: String(s.p),
+      z: String(s.z),
+      l: String(s.l || 0),
+      i: s.i ? ('r' + s.i) : '0',
+      st: mode === 'dfa' ? (s.dState < 0 ? '∅' : ('D' + s.dState)) : (s.R.length ? s.R.join(', ') : '∅'),
+      _checked: true
+    };
+  }
+
+  $('bCheckStep').onclick = function () {
+    if (!model) return;
+    var k = Math.min(shownSteps, model.trace.length) - 1;
+    if (k <= 0) return;
+    userInputs[k] = userInputs[k] || {};
+    userInputs[k]._checked = true;
+    var res = validateStep(k);
+    if (res.allOk) {
+      var exp = model.trace[k];
+      var done = shownSteps >= model.trace.length;
+      if (!done) shownSteps++;
+      renderTrace();
+      $('fb').className = 'feedback ok';
+      $('fb').innerHTML = '<b>Korak ' + k + ' točan ✓</b> ' + esc(exp.text) + (done ? '<br><b>Kraj traga!</b> Sada provjeri izlazne jedinke ispod.' : '');
+    } else {
+      renderTrace();
+      var wrongs = [];
+      if (!res.p) wrongs.push('Početak');
+      if (!res.z) wrongs.push('Završetak');
+      if (!res.l) wrongs.push('Posljednji');
+      if (!res.i) wrongs.push('Izraz');
+      if (!res.st) wrongs.push($('simMode').value === 'dfa' ? 'Stanje q′' : 'Skup R');
+      $('fb').className = 'feedback err';
+      $('fb').innerHTML = 'Provjeri stupce: <b>' + wrongs.join(', ') + '</b> u koraku ' + k + '.';
+    }
+  };
+
+  $('bHintStep').onclick = function () {
+    if (!model) return;
+    var k = Math.min(shownSteps, model.trace.length) - 1;
+    if (k <= 0) return;
+    fillStep(k);
+    var exp = model.trace[k];
+    if (shownSteps < model.trace.length) shownSteps++;
+    renderTrace();
+    $('fb').className = 'feedback';
+    $('fb').innerHTML = 'Popunjen korak ' + k + ': ' + esc(exp.text);
+  };
+
+  $('bShowAll').onclick = function () {
+    if (!model) return;
+    shownSteps = model.trace.length;
+    for (var k = 1; k < model.trace.length; k++) fillStep(k);
+    renderTrace();
+    $('fb').className = 'feedback ok';
+    $('fb').innerHTML = 'Prikazan je cijeli trag simulatora.';
+  };
+
+  $('bResetTrace').onclick = function () {
+    userInputs = {};
+    shownSteps = Math.min(2, model.trace.length);
+    renderTrace();
+    $('fb').className = 'feedback';
+    $('fb').innerHTML = 'Trag je ispražnjen. Popuni <b>Korak 1</b>.';
+  };
+
+  $('bCheckOut').onclick = function () {
+    if (!model) return;
+    var expected = model.tokens.map(function (t) { return t.error ? 'err' : ('r' + t.rule); });
+    var raw = $('outGuess').value.trim();
+    var got = raw ? raw.split(/[\s,;]+/).filter(Boolean).map(function (x) {
+      x = x.toLowerCase();
+      if (/^\d+$/.test(x)) return 'r' + x;
+      if (x === 'greška' || x === 'greska' || x === 'pogreška' || x === 'pogreska') return 'err';
+      return x;
+    }) : [];
+    var same = got.length === expected.length && got.every(function (v, i) { return v === expected[i]; });
+    var expTxt = model.tokens.map(function (t) { return t.error ? ('pogreška("' + vis(t.text) + '")') : ('r' + t.rule + '("' + vis(t.text) + '")'); }).join(', ');
+    if (same) {
+      $('outFb').innerHTML = '<span class="ok"><b>Točno ✓</b> Izlaz: ' + esc(expTxt) + '</span>';
+    } else {
+      $('outFb').innerHTML = '<span class="err"><b>Netočno ✗</b> Očekivani izlaz je: <code>' + esc(expected.join(', ')) + '</code> (' + esc(expTxt) + ')</span>';
+    }
+  };
+
+  /* ------------------------------------------------ pravila UI */
+  function renderRules() {
+    var host = $('rules');
+    host.innerHTML = '';
+    rules.forEach(function (r, idx) {
+      var row = document.createElement('div');
+      row.className = 'rrow';
+      row.innerHTML =
+        '<span class="rn">r' + (idx + 1) + '</span>' +
+        '<input type="text" class="re" value="' + esc(r.src) + '" aria-label="Regularni izraz r' + (idx + 1) + '" spellcheck="false">' +
+        '<input type="text" class="cl" value="' + esc(r.cls) + '" aria-label="Klasa r' + (idx + 1) + '" spellcheck="false">' +
+        '<button class="btn del" type="button" title="Ukloni">✕</button>';
+      row.querySelector('.re').oninput = function (e) { r.src = e.target.value; rebuild(); };
+      row.querySelector('.cl').oninput = function (e) { r.cls = e.target.value; rebuild(); };
+      row.querySelector('.del').onclick = function () { rules.splice(idx, 1); renderRules(); rebuild(); };
+      host.appendChild(row);
+    });
+  }
+  $('addRule').onclick = function () {
+    rules.push({ src: 'a', cls: 'R' + (rules.length + 1) });
+    renderRules();
+    rebuild();
+  };
+
+  var ph = $('presets');
+  PRESETS.forEach(function (p, idx) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip ex'; b.textContent = p.name;
+    b.onclick = function () {
+      rules = p.rules.map(function (r) { return { src: r.src, cls: r.cls }; });
+      $('inp').value = p.input;
+      $('simMode').value = p.mode;
+      Array.prototype.forEach.call(ph.querySelectorAll('.ex'), function (x, j) { x.classList.toggle('sel', j === idx); });
+      renderRules();
+      rebuild();
+    };
+    ph.appendChild(b);
+  });
+
+  $('inp').addEventListener('input', rebuild);
+  $('simMode').addEventListener('change', function () { renderTransTable(); userInputs = {}; shownSteps = Math.min(2, model.trace.length); renderTrace(); });
+
+  ph.querySelectorAll('.ex')[0].click();
+})();
+</script>
+</body>
+</html>
