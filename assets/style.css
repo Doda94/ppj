@@ -46,6 +46,7 @@
 
   /* Semantički shortcuti (kompatibilnost + callout/verdict) */
   --ok: #246642;           --ok-bg: #edf3ec;    --ok-border: #bed9c9;
+  --step-done-ink: #ffffff;
   --warn: #8a4b08;         --warn-bg: #fbf3db;  --warn-border: #e8d497;
   --err: #b32b29;          --err-bg: #fdebec;   --err-border: #f0c5be;
   --info: #1f4a68;         --info-bg: #e7f3f8;  --info-border: #b6d4f3;
@@ -83,8 +84,8 @@
     --line-subtle: rgba(255, 255, 255, 0.08);
 
     --accent: #52a8ff;
-    --accent-btn: #2383e2;
-    --accent-hover: #3b93ec;
+    --accent-btn: #1f74cb;
+    --accent-hover: #155da7;
     --accent-raw: #52a8ff;
     --accent-ink: #ffffff;
     --focus-ring: rgba(82, 168, 255, 0.65) 0 0 0 1px inset, rgba(35, 131, 226, 0.38) 0 0 0 2px;
@@ -100,6 +101,8 @@
     --n-red: #f8a5a1;        --n-red-bg: #352221;
 
     --ok: #52c282;           --ok-bg: #1e2c24;    --ok-border: #2d4d3b;
+  --step-done-ink: #191919;
+    --step-done-ink: #191919;
     --warn: #e8ab46;         --warn-bg: #342b1a;  --warn-border: #594626;
     --err: #f27470;          --err-bg: #352221;   --err-border: #5c312e;
     --info: #78bfff;         --info-bg: #1d2a35;  --info-border: #2a4763;
@@ -131,8 +134,8 @@
   --line-subtle: rgba(255, 255, 255, 0.08);
 
   --accent: #52a8ff;
-  --accent-btn: #2383e2;
-  --accent-hover: #3b93ec;
+  --accent-btn: #1f74cb;
+  --accent-hover: #155da7;
   --accent-raw: #52a8ff;
   --accent-ink: #ffffff;
   --focus-ring: rgba(82, 168, 255, 0.65) 0 0 0 1px inset, rgba(35, 131, 226, 0.38) 0 0 0 2px;
@@ -148,6 +151,7 @@
   --n-red: #f8a5a1;        --n-red-bg: #352221;
 
   --ok: #52c282;           --ok-bg: #1e2c24;    --ok-border: #2d4d3b;
+  --step-done-ink: #191919;
   --warn: #e8ab46;         --warn-bg: #342b1a;  --warn-border: #594626;
   --err: #f27470;          --err-bg: #352221;   --err-border: #5c312e;
   --info: #78bfff;         --info-bg: #1d2a35;  --info-border: #2a4763;
@@ -486,6 +490,7 @@ input[type=range] {
   user-select: none;
 }
 .callout-body { flex: 1 1 auto; min-width: 0; }
+.callout-body ul { margin: 4px 0 0; padding-left: 18px; }
 .callout.info { background: var(--info-bg); border-color: var(--info-border); color: var(--info); }
 .callout.ok { background: var(--ok-bg); border-color: var(--ok-border); color: var(--ok); }
 .callout.warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn); }
@@ -523,11 +528,10 @@ details.toggle > summary::-webkit-details-marker { display: none; }
 details.toggle > summary::before {
   content: "";
   display: inline-block;
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 5px 0 5px 8px;
-  border-color: transparent transparent transparent var(--muted);
+  width: 8px;
+  height: 10px;
+  background: var(--muted);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
   margin: 0 3px 0 2px;
   transition: transform 140ms ease;
   flex-shrink: 0;
@@ -725,7 +729,7 @@ kbd, .kbd {
   font: 600 11px var(--mono);
 }
 .step.done { border-color: var(--ok-border); color: var(--ok); background: var(--ok-bg); }
-.step.done .step-num { background: var(--ok); color: #ffffff; }
+.step.done .step-num { background: var(--ok); color: var(--step-done-ink); }
 .step.active { border-color: var(--accent-raw); color: var(--accent); background: var(--info-bg); }
 .step.active .step-num { background: var(--accent-btn); color: #ffffff; }
 
