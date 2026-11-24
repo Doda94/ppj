@@ -4,81 +4,76 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Generator leksičkog analizatora (Lex)</title>
+<script src="../../assets/theme.js"></script>
 <link rel="stylesheet" href="../../assets/style.css">
 <style>
-  .small { font-size: 13px; }
-  .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--sans); font-size: 13px; padding: 3px 10px; }
-  .ex:hover, .ex.sel { border-color: var(--accent); }
-  .ex:focus-visible, .btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ex { white-space: normal; text-align: left; }
+  .ex.sel { background: var(--info-bg); color: var(--info); border-color: var(--info-border); }
   .ctl { margin: 6px 0 10px; }
-  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line);
-    font: 600 13px var(--sans); color: var(--muted); background: var(--bg); }
-  .badge.ok { color: var(--ok); border-color: var(--ok); }
-  .badge.err { color: var(--err); border-color: var(--err); }
-  .badge.warn { color: var(--warn); border-color: var(--warn); }
-  .stepbox { border-left: 4px solid var(--accent); background: var(--bg); padding: 8px 12px; border-radius: 6px;
-    margin: 8px 0 10px; min-height: 3.2em; }
-  .stepbox.stop { border-left-color: var(--warn); }
-  .stepbox.error { border-left-color: var(--err); }
-  .stepbox.emit { border-left-color: var(--ok); }
+  .stepbox {
+    border: 1px solid var(--line-subtle);
+    border-left: 3px solid var(--accent-raw);
+    background: var(--bg-subtle);
+    padding: 10px 14px;
+    border-radius: var(--r-md);
+    margin: 8px 0 10px;
+    min-height: 3.2em;
+    font-size: 14.5px;
+    line-height: 1.5;
+  }
+  .stepbox.stop { border-left-color: var(--warn); background: var(--warn-bg); }
+  .stepbox.error { border-left-color: var(--err); background: var(--err-bg); }
+  .stepbox.emit { border-left-color: var(--ok); background: var(--ok-bg); }
   .stepbox code { font-family: var(--mono); }
-  .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 6px; }
-  .gwrap svg { display: block; margin: 0 auto; }
-  svg .arr { fill: var(--muted); }
-  svg .arr.act { fill: var(--accent); }
-  svg .ring { fill: none; stroke: var(--ink); stroke-width: 1.2; }
-  svg .nid { font-size: 12px; }
-  svg .lbl { font-size: 12px; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
-  svg .cap { font-size: 12px; fill: var(--muted); }
-  svg .acc { font-size: 11px; fill: var(--ink); font-weight: 700; }
-  .tblwrap { overflow-x: auto; margin: 8px 0; }
+  .tblwrap { margin: 8px 0; }
   table.t td.num, table.t th.num { text-align: right; }
   table.t tr.dim td { color: var(--muted); }
   table.t tr.zero td { color: var(--warn); }
   /* pravila */
-  .rrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+  .rrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line-subtle); }
   .rrow:first-child { border-top: 0; }
   .rrow .rn { font: 700 13px var(--mono); min-width: 28px; color: var(--accent); }
   .rrow input[type=text] { width: auto; }
   .rrow .re { flex: 2 1 190px; min-width: 120px; }
   .rrow .cl { flex: 1 1 110px; min-width: 90px; }
   .rrow .arrow { color: var(--muted); }
-  .rrow label.dis { display: inline-flex; align-items: center; gap: 4px; margin: 0; white-space: nowrap; cursor: pointer; }
   .rrow .btn { padding: 4px 9px; }
   .rmsg { flex: 1 0 100%; font-size: 13px; padding-left: 34px; margin-top: -2px; }
   /* ulazni niz s kazaljkama */
   .strip { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0; align-items: flex-start; }
   .strip .cell { display: flex; flex-direction: column; align-items: center; min-width: 28px; }
   .strip .pos { font: 10px var(--mono); color: var(--muted); line-height: 1.2; }
-  .strip .c { width: 100%; text-align: center; padding: 3px 4px; border: 1px solid var(--line); border-radius: 5px;
+  .strip .c { width: 100%; text-align: center; padding: 3px 4px; border: 1px solid var(--line); border-radius: var(--r-sm);
     font: 16px var(--mono); background: var(--bg); color: var(--ink); }
   .strip .c.todo { color: var(--muted); }
   .strip .c.tok { background: var(--chip); color: var(--chip-ink); border-color: transparent; }
   .strip .c.tok.alt { background: var(--panel); border-color: var(--chip-ink); }
   .strip .c.disc { color: var(--muted); border-style: dotted; }
-  .strip .c.errc { color: var(--err); border-color: var(--err); text-decoration: line-through; }
-  .strip .c.scan { background: var(--hl); color: var(--hl-ink); border-color: transparent; opacity: .8; }
+  .strip .c.errc { color: var(--err); border-color: var(--err); background: var(--err-bg); text-decoration: line-through; }
+  .strip .c.scan { background: var(--hl); color: var(--hl-ink); border-color: transparent; opacity: .85; }
   .strip .c.last { box-shadow: inset 0 -3px 0 var(--ok); }
   .strip .c.cur { opacity: 1; font-weight: 700; border-color: var(--warn); }
   .strip .mk { font: 700 11px var(--mono); min-height: 14px; line-height: 14px; }
   .mk .P { color: var(--accent); } .mk .Z { color: var(--warn); } .mk .L { color: var(--ok); }
   .strip .endc { align-self: center; color: var(--muted); font: 14px var(--mono); padding: 0 4px; }
   .vars { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
-  .vars .v { border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; background: var(--bg); min-width: 92px; }
+  .vars .v { border: 1px solid var(--line); border-radius: var(--r-md); padding: 5px 10px; background: var(--bg-subtle); min-width: 92px; max-width: 100%; overflow-wrap: anywhere; }
   .vars .v span { display: block; font-size: 11.5px; color: var(--muted); }
   .vars .v b { font: 600 15px var(--mono); }
   .vars .v.wide { flex: 1 1 220px; }
-  .legend { color: var(--muted); font-size: 12.5px; margin: 4px 0 0; }
-  h3 { font-size: 14px; margin: 14px 0 6px; }
-  .tag { font: 600 12px var(--sans); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .legend { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+  section h3 { margin: 14px 0 6px; }
   .note { color: var(--muted); font-size: 13.5px; margin: 8px 0 0; }
-  details { margin-top: 8px; } details summary { cursor: pointer; color: var(--accent); font-size: 14px; }
-  @media (max-width: 520px) { .wrap { padding: 14px 12px 40px; } .btn { padding: 7px 10px; } .rmsg { padding-left: 0; } }
+  .note:empty { display: none; }
+  @media (max-width: 520px) { .rmsg { padding-left: 0; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Generator leksičkog analizatora (Lex)</h1>
+  <div class="topbar">
+    <h1>Generator leksičkog analizatora (Lex)</h1>
+    <a class="btn popout" href="./" target="_blank" rel="noopener">↗ Otvori veći prikaz</a>
+  </div>
   <p class="lead">Zadaj pravila „regularni izraz → klasa jedinke“ i ulazni tekst, pa korak po korak prati kako simulator nad kombiniranim ε-NKA odabire najdulje podudaranje, razrješava nejednoznačnost redoslijedom pravila i oporavlja se od pogreške.</p>
 
   <div class="panel">
@@ -94,13 +89,15 @@
       <button class="btn" id="addrule" type="button">+ Dodaj pravilo</button>
       <span class="muted small">Ako dva pravila prihvaćaju isti najdulji niz, vrijedi ono koje je u popisu više (knjiga 2.9.3, pravilo P2). Označi „odbaci“ za pravila bez izlaza (bjeline).</span>
     </div>
-    <details>
+    <details class="toggle" style="margin-top:8px">
       <summary>Sintaksa regularnih izraza</summary>
-      <ul class="small" style="margin:6px 0 0;padding-left:20px">
-        <li><code>a|b</code> unija (u knjizi <code>a+b</code>), <code>ab</code> ulančavanje, <code>*</code> zatvorenje, <code>+</code> jedno ili više, <code>?</code> nula ili jedno, <code>( )</code> grupiranje</li>
-        <li><code>[a-zA-Z0-9]</code> klasa, <code>[^"]</code> komplement, <code>.</code> bilo koji znak osim novog retka, <code>\d</code> <code>\w</code> <code>\s</code>, <code>\e</code> prazan niz</li>
-        <li><code>\</code> ukida posebno značenje: <code>\.</code> <code>\+</code> <code>\(</code> <code>\*</code>. Razmak je običan znak: <code>[ \t\n]+</code> su bjeline.</li>
-      </ul>
+      <div class="toggle-body">
+        <ul class="small" style="margin:0;padding-left:20px">
+          <li><code>a|b</code> unija (u knjizi <code>a+b</code>), <code>ab</code> ulančavanje, <code>*</code> zatvorenje, <code>+</code> jedno ili više, <code>?</code> nula ili jedno, <code>( )</code> grupiranje</li>
+          <li><code>[a-zA-Z0-9]</code> klasa, <code>[^"]</code> komplement, <code>.</code> bilo koji znak osim novog retka, <code>\d</code> <code>\w</code> <code>\s</code>, <code>\e</code> prazan niz</li>
+          <li><code>\</code> ukida posebno značenje: <code>\.</code> <code>\+</code> <code>\(</code> <code>\*</code>. Razmak je običan znak: <code>[ \t\n]+</code> su bjeline.</li>
+        </ul>
+      </div>
     </details>
   </section>
 
@@ -114,15 +111,15 @@
     <h2 id="hn">Kombinirani ε-NKA</h2>
     <p class="small" id="nsum" style="margin:0 0 8px"></p>
     <div class="tblwrap" id="ntbl"></div>
-    <label class="small" style="display:inline-flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="showg"> Prikaži graf kombiniranog ε-NKA</label>
+    <label class="check-label"><input type="checkbox" id="showg"> Prikaži graf kombiniranog ε-NKA</label>
     <div class="gwrap" id="ng" style="margin-top:8px" hidden></div>
     <p class="legend">Prema slici 2.18 u knjizi: novo početno stanje <b>0</b> (p<sub>0</sub>) ima ε-prijelaze u početna stanja ε-NKA svih pravila; svako pravilo ima vlastito prihvatljivo stanje (oznaka r<sub>i</sub>). Stupac „izdano“ pokazuje koliko je jedinki trenutni ulaz dobio od pravila — nula znači da pravilo na tom ulazu nikad ne pobjeđuje.</p>
   </section>
 
   <section class="panel" aria-labelledby="hs">
     <h2 id="hs">Simulacija leksičke analize</h2>
-    <div class="row ctl" id="ctl"></div>
-    <div><span class="tag" id="kind"></span></div>
+    <div class="toolbar ctl" id="ctl"></div>
+    <div><span class="tag gray" id="kind"></span></div>
     <div class="strip" id="strip" aria-label="Ulazni tekst s kazaljkama"></div>
     <p class="legend" style="margin-top:0"><span class="mk"><b class="P">P</b></span> Početak (prvi znak neanalizirane jedinke) · <span class="mk"><b class="Z">Z</b></span> Završetak (zadnji pročitani znak) · <span class="mk"><b class="L">L</b></span> Posljednji (kraj najduljeg prepoznatog prefiksa, zeleni donji rub). Žuta pozadina = jedinka koja se trenutno čita.</p>
     <div class="stepbox" id="dec" aria-live="polite"></div>
@@ -183,7 +180,7 @@
       '<span class="badge" data-a="cnt" aria-live="polite"></span>';
     var st = { i: 0, max: 0, timer: null, kinds: [] }, btn = {};
     Array.prototype.forEach.call(host.querySelectorAll('[data-a]'), function (b) { btn[b.getAttribute('data-a')] = b; });
-    function stop() { if (st.timer) { clearInterval(st.timer); st.timer = null; btn.play.textContent = '▶ Auto-play'; } }
+    function stop() { if (st.timer) { clearInterval(st.timer); st.timer = null; btn.play.textContent = '▶ Auto-play'; btn.play.classList.remove('active'); } }
     function refresh() {
       btn.reset.disabled = btn.back.disabled = st.i <= 0;
       btn.next.disabled = btn.end.disabled = btn.tok.disabled = st.i >= st.max;
@@ -205,6 +202,7 @@
       if (st.timer) { stop(); return; }
       if (st.i >= st.max) go(0);
       btn.play.textContent = '⏸ Pauza';
+      btn.play.classList.add('active');
       st.timer = setInterval(function () { go(st.i + 1); if (st.i >= st.max) stop(); }, delay || 900);
     };
     return { set: function (max, kinds, at) { stop(); st.max = max; st.kinds = kinds; go(at || 0); }, stop: stop };
@@ -222,7 +220,7 @@
         '<input type="text" class="re" aria-label="Regularni izraz pravila ' + (i + 1) + '" spellcheck="false" autocomplete="off" autocapitalize="off">' +
         '<span class="arrow" aria-hidden="true">→</span>' +
         '<input type="text" class="cl" aria-label="Klasa jedinke pravila ' + (i + 1) + '" placeholder="klasa" spellcheck="false" autocomplete="off" autocapitalize="off">' +
-        '<label class="dis"><input type="checkbox" class="dsc"> odbaci</label>' +
+        '<label class="check-label dis"><input type="checkbox" class="dsc"> odbaci</label>' +
         '<button class="btn up" type="button" title="Prioritet više" aria-label="Pomakni pravilo ' + (i + 1) + ' gore">↑</button>' +
         '<button class="btn dn" type="button" title="Prioritet niže" aria-label="Pomakni pravilo ' + (i + 1) + ' dolje">↓</button>' +
         '<button class="btn del" type="button" title="Ukloni pravilo" aria-label="Ukloni pravilo ' + (i + 1) + '">✕</button>' +
@@ -319,12 +317,15 @@
   }
 
   var KIND = { init: 'Početak rada', read: 'Čitanje znaka', stop: 'Odluka — čitanje je stalo', emit: 'Izdavanje jedinke', error: 'Oporavak od pogreške', done: 'Kraj' };
+  var KIND_TAG = { init: 'gray', read: 'info', stop: 'warn', emit: 'ok', error: 'err', done: 'gray' };
 
   var curStep = 0;
   function renderStep(i) {
     if (!lt) return;
     curStep = i;
     var s = lt.steps[i], n = s.n, chars = lt.chars;
+    var kCls = (s.kind === 'stop' && s.decision && s.decision.error) ? 'err' : (KIND_TAG[s.kind] || 'gray');
+    $('kind').className = 'tag ' + kCls;
     $('kind').textContent = KIND[s.kind] || '';
     // niz znakova s kazaljkama
     var cls = charClassFor(s), h = '', p;
@@ -391,7 +392,7 @@
   var ph = $('presets');
   PRESETS.forEach(function (p) {
     var b = document.createElement('button');
-    b.type = 'button'; b.className = 'chip ex'; b.textContent = p.name; b.dataset.id = p.id;
+    b.type = 'button'; b.className = 'btn sm ex'; b.textContent = p.name; b.dataset.id = p.id;
     b.onclick = function () { loadPreset(p.id); };
     ph.appendChild(b);
   });
