@@ -4,61 +4,114 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Trag simulatora leksičkog analizatora — PPJ</title>
+<script src="../../assets/theme.js"></script>
 <link rel="stylesheet" href="../../assets/style.css">
 <style>
-  .wrap { max-width: 1220px; }
-  .small { font-size: 13px; }
-  .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-  .popout { display: none; text-decoration: none; }
-  .in-embed .wrap { max-width: 100%; padding: 8px 10px 14px; }
-  .in-embed h1 { font-size: 17px; margin: 0; }
-  .in-embed p.lead, .in-embed .footer { display: none; }
-  .in-embed .popout { display: inline-flex; align-items: center; padding: 4px 10px; font-size: 12.5px; }
-  .in-embed .panel { padding: 10px 12px; margin: 8px 0; }
-  .in-embed h2 { font-size: 14.5px; margin-bottom: 6px; }
   @media (min-width: 660px) {
-    .in-embed .embed-grid { display: grid; grid-template-columns: 260px 1fr; gap: 10px; align-items: start; }
+    html[data-embed="1"] .embed-grid,
+    .in-embed .embed-grid {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+    html[data-embed="1"] .embed-grid > .panel,
     .in-embed .embed-grid > .panel { margin: 0; min-width: 0; }
-    .in-embed .rrow .re { flex: 1 1 110px; min-width: 85px; }
-    .in-embed .rrow .cl { flex: 0 1 65px; min-width: 55px; }
+    html[data-embed="1"] .rrow .re,
+    .in-embed .rrow .re { flex: 1 1 80px; min-width: 60px; padding: 4px 6px; font-size: 13px; }
+    html[data-embed="1"] .rrow .cl,
+    .in-embed .rrow .cl { flex: 0 1 56px; min-width: 48px; padding: 4px 6px; font-size: 13px; }
+    html[data-embed="1"] .rrow .del,
+    .in-embed .rrow .del { padding: 2px 6px; min-height: 24px; }
+    html[data-embed="1"] table.t input.tin,
     .in-embed table.t input.tin { min-width: 44px; padding: 3px 5px; font-size: 13px; }
+    html[data-embed="1"] table.t input.tin.wide,
     .in-embed table.t input.tin.wide { min-width: 88px; }
   }
-  .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--sans); font-size: 13px; padding: 3px 10px; }
-  .ex:hover, .ex.sel { border-color: var(--accent); }
-  .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .rrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); }
+
+  .ex {
+    appearance: none;
+    cursor: pointer;
+    border: 1px solid var(--line-subtle);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 3px 10px;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+  .ex:hover { background: var(--bg-hover); border-color: var(--line); }
+  .ex.sel { background: var(--info-bg); color: var(--info); border-color: var(--info-border); }
+  .ex:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+  .rrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 0;
+    border-top: 1px solid var(--line-subtle);
+  }
   .rrow:first-child { border-top: 0; }
-  .rrow .rn { font: 700 13px var(--mono); min-width: 28px; color: var(--accent); }
+  .rrow .rn { font: 700 13px var(--mono); min-width: 24px; color: var(--accent); }
   .rrow input[type=text] { width: auto; }
-  .rrow .re { flex: 2 1 160px; min-width: 110px; }
-  .rrow .cl { flex: 1 1 100px; min-width: 80px; }
-  .rrow .btn { padding: 4px 8px; }
-  .strip { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0; align-items: flex-start; }
+  .rrow .re { flex: 2 1 120px; min-width: 90px; }
+  .rrow .cl { flex: 1 1 75px; min-width: 60px; }
+
+  .strip { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; align-items: flex-start; }
   .strip .cell { display: flex; flex-direction: column; align-items: center; min-width: 28px; }
-  .strip .pos { font: 10px var(--mono); color: var(--muted); }
-  .strip .c { width: 100%; text-align: center; padding: 3px 5px; border: 1px solid var(--line); border-radius: 5px; font: 15px var(--mono); background: var(--bg); }
-  .tblwrap { overflow-x: auto; margin: 8px 0; }
+  .strip .pos { font: 10.5px var(--mono); color: var(--muted); }
+  .strip .c {
+    width: 100%;
+    text-align: center;
+    padding: 3px 5px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    font: 14.5px var(--mono);
+    background: var(--bg-subtle);
+    color: var(--ink);
+  }
+
+  .tblwrap { margin: 8px 0; }
+  #transTbl table.t th, #transTbl table.t td { white-space: nowrap; }
   table.t th, table.t td { font-size: 13.5px; }
   table.t input.tin {
-    width: 100%; min-width: 60px; padding: 5px 7px; border: 1.5px solid var(--line); border-radius: 5px;
-    background: var(--bg); color: var(--ink); font: 14px var(--mono);
+    width: 100%;
+    min-width: 60px;
+    padding: 4px 7px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--bg-input);
+    color: var(--ink);
+    font: 14px var(--mono);
+    transition: box-shadow 120ms ease, border-color 120ms ease, background 120ms ease;
+  }
+  table.t input.tin:focus,
+  table.t input.tin:focus-visible {
+    outline: none;
+    border-color: var(--accent-raw);
+    background: var(--bg);
+    box-shadow: var(--focus-ring);
   }
   table.t input.tin.wide { min-width: 120px; }
-  table.t .ok-cell { border-color: var(--ok) !important; background: color-mix(in srgb, var(--ok) 12%, var(--bg)) !important; }
-  table.t .err-cell { border-color: var(--err) !important; background: color-mix(in srgb, var(--err) 12%, var(--bg)) !important; }
-  .feedback { border-left: 4px solid var(--accent); background: var(--bg); padding: 9px 12px; border-radius: 6px; margin-top: 8px; font-size: 13.5px; }
-  .feedback.ok { border-left-color: var(--ok); }
-  .feedback.err { border-left-color: var(--err); }
-  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line);
-    font: 600 13px var(--sans); color: var(--muted); background: var(--bg); }
-  .badge.ok { color: var(--ok); border-color: var(--ok); }
-  details summary { cursor: pointer; color: var(--accent); font-size: 14px; }
-  @media (max-width: 520px) { .wrap { padding: 12px 10px 36px; } .btn { padding: 6px 9px; font-size: 13px; } }
+  table.t input.tin.ok-cell {
+    border-color: var(--ok);
+    background: var(--ok-bg);
+    color: var(--ink);
+  }
+  table.t input.tin.err-cell {
+    border-color: var(--err);
+    background: var(--err-bg);
+    color: var(--ink);
+  }
+
+  .out-check-block {
+    margin-top: 14px;
+    border-top: 1px solid var(--line-subtle);
+    padding-top: 12px;
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap wide">
   <div class="topbar">
     <h1>Trag simulatora (Početak / Završetak / Posljednji / Izraz)</h1>
     <a class="btn popout" href="./" target="_blank" rel="noopener">↗ Otvori veći prikaz</a>
@@ -85,18 +138,23 @@
     </div>
     <div class="strip" id="strip"></div>
 
-    <details style="margin-top:8px">
+    <details class="toggle boxed" style="margin-top:10px">
       <summary>Prikaži tablicu prijelaza automata (za očitavanje R / q′)</summary>
-      <div class="tblwrap" id="transTbl"></div>
+      <div class="toggle-body" style="padding-left:8px">
+        <div class="tblwrap" id="transTbl"></div>
+      </div>
     </details>
   </section>
 
   <section class="panel">
     <h2>2 · Popuni tablicu koraka simulatora</h2>
-    <p class="small muted" style="margin:0 0 8px">
-      Indeksi znakova počinju od <b>1</b>. Ako nijedno pravilo još ne prihvaća prefiks, <code>Izraz = 0</code> i <code>Posljednji = 0</code> (ili <code>—</code>). Za pravilo upiši oznaku <code>rK</code> ili broj <code>K</code>.
-    </p>
-    <div class="row" style="gap:6px;margin-bottom:8px">
+    <div class="callout info" style="margin:0 0 10px">
+      <span class="callout-icon" aria-hidden="true">ℹ️</span>
+      <div class="callout-body small">
+        Indeksi znakova počinju od <b>1</b>. Ako nijedno pravilo još ne prihvaća prefiks, <code>Izraz = 0</code> i <code>Posljednji = 0</code> (ili <code>—</code>). Za pravilo upiši oznaku <code>rK</code> ili broj <code>K</code>.
+      </div>
+    </div>
+    <div class="toolbar">
       <button class="btn primary" type="button" id="bCheckStep">Provjeri trenutni korak</button>
       <button class="btn" type="button" id="bHintStep">Pomoć za korak</button>
       <button class="btn" type="button" id="bShowAll">Prikaži cijeli trag</button>
@@ -105,15 +163,15 @@
     </div>
 
     <div class="tblwrap" id="traceTbl"></div>
-    <div class="feedback" id="fb">Popuni redak <b>Korak 1</b> pa klikni „Provjeri trenutni korak“.</div>
+    <div class="verdict info" id="fb" aria-live="polite">Popuni redak <b>Korak 1</b> pa klikni „Provjeri trenutni korak“.</div>
 
-    <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
+    <div class="out-check-block">
       <label for="outGuess">3 · Izlazne jedinke (upiši niz oznaka pravila odvojen zarezom ili razmakom)</label>
       <div class="row" style="gap:8px">
         <input type="text" id="outGuess" placeholder="oznaka1, oznaka2, …" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:170px">
         <button class="btn primary" type="button" id="bCheckOut">Provjeri izlaz</button>
       </div>
-      <div id="outFb" class="small" style="margin-top:6px"></div>
+      <div id="outFb" aria-live="polite"></div>
     </div>
   </section>
   </div>
@@ -205,8 +263,9 @@
     renderStrip();
     renderTransTable();
     renderTrace();
+    $('outFb').className = '';
     $('outFb').innerHTML = '';
-    $('fb').className = 'feedback';
+    $('fb').className = 'verdict info';
     $('fb').innerHTML = 'Korak 0 je početno stanje. Popuni <b>Korak 1</b> pa klikni „Provjeri trenutni korak“.';
   }
 
@@ -335,11 +394,11 @@
         return checked[field] ? ' ok-cell' : ' err-cell';
       }
       h += '<tr><td>' + k + '</td><td>' + esc(s.label) + '</td>' +
-        '<td><input class="tin' + clsFor('p') + '" data-k="' + k + '" data-f="p" value="' + esc(u.p || '') + '" autocomplete="off"></td>' +
-        '<td><input class="tin' + clsFor('z') + '" data-k="' + k + '" data-f="z" value="' + esc(u.z || '') + '" autocomplete="off"></td>' +
-        '<td><input class="tin' + clsFor('l') + '" data-k="' + k + '" data-f="l" value="' + esc(u.l || '') + '" autocomplete="off"></td>' +
-        '<td><input class="tin' + clsFor('i') + '" data-k="' + k + '" data-f="i" value="' + esc(u.i || '') + '" autocomplete="off"></td>' +
-        '<td><input class="tin' + (mode === 'nfa' ? ' wide' : '') + clsFor('st') + '" data-k="' + k + '" data-f="st" value="' + esc(u.st || '') + '" placeholder="' + (mode === 'dfa' ? 'D? / ∅' : 'skup stanja') + '" autocomplete="off"></td>' +
+        '<td><input class="tin' + clsFor('p') + '" data-k="' + k + '" data-f="p" value="' + esc(u.p || '') + '" aria-label="Korak ' + k + ' Početak" autocomplete="off"></td>' +
+        '<td><input class="tin' + clsFor('z') + '" data-k="' + k + '" data-f="z" value="' + esc(u.z || '') + '" aria-label="Korak ' + k + ' Završetak" autocomplete="off"></td>' +
+        '<td><input class="tin' + clsFor('l') + '" data-k="' + k + '" data-f="l" value="' + esc(u.l || '') + '" aria-label="Korak ' + k + ' Posljednji" autocomplete="off"></td>' +
+        '<td><input class="tin' + clsFor('i') + '" data-k="' + k + '" data-f="i" value="' + esc(u.i || '') + '" aria-label="Korak ' + k + ' Izraz" autocomplete="off"></td>' +
+        '<td><input class="tin' + (mode === 'nfa' ? ' wide' : '') + clsFor('st') + '" data-k="' + k + '" data-f="st" value="' + esc(u.st || '') + '" placeholder="' + (mode === 'dfa' ? 'D? / ∅' : 'skup stanja') + '" aria-label="Korak ' + k + ' ' + (mode === 'dfa' ? 'Stanje q′' : 'Skup R') + '" autocomplete="off"></td>' +
         '</tr>';
     }
     h += '</tbody></table>';
@@ -385,7 +444,7 @@
       var done = shownSteps >= model.trace.length;
       if (!done) shownSteps++;
       renderTrace();
-      $('fb').className = 'feedback ok';
+      $('fb').className = 'verdict ok';
       $('fb').innerHTML = '<b>Korak ' + k + ' točan ✓</b> ' + esc(exp.text) + (done ? '<br><b>Kraj traga!</b> Sada provjeri izlazne jedinke ispod.' : '');
     } else {
       renderTrace();
@@ -395,7 +454,7 @@
       if (!res.l) wrongs.push('Posljednji');
       if (!res.i) wrongs.push('Izraz');
       if (!res.st) wrongs.push($('simMode').value === 'dfa' ? 'Stanje q′' : 'Skup R');
-      $('fb').className = 'feedback err';
+      $('fb').className = 'verdict err';
       $('fb').innerHTML = 'Provjeri stupce: <b>' + wrongs.join(', ') + '</b> u koraku ' + k + '.';
     }
   };
@@ -408,7 +467,7 @@
     var exp = model.trace[k];
     if (shownSteps < model.trace.length) shownSteps++;
     renderTrace();
-    $('fb').className = 'feedback';
+    $('fb').className = 'verdict info';
     $('fb').innerHTML = 'Popunjen korak ' + k + ': ' + esc(exp.text);
   };
 
@@ -417,7 +476,7 @@
     shownSteps = model.trace.length;
     for (var k = 1; k < model.trace.length; k++) fillStep(k);
     renderTrace();
-    $('fb').className = 'feedback ok';
+    $('fb').className = 'verdict ok';
     $('fb').innerHTML = 'Prikazan je cijeli trag simulatora.';
   };
 
@@ -425,7 +484,7 @@
     userInputs = {};
     shownSteps = Math.min(2, model.trace.length);
     renderTrace();
-    $('fb').className = 'feedback';
+    $('fb').className = 'verdict info';
     $('fb').innerHTML = 'Trag je ispražnjen. Popuni <b>Korak 1</b>.';
   };
 
@@ -442,9 +501,11 @@
     var same = got.length === expected.length && got.every(function (v, i) { return v === expected[i]; });
     var expTxt = model.tokens.map(function (t) { return t.error ? ('pogreška("' + vis(t.text) + '")') : ('r' + t.rule + '("' + vis(t.text) + '")'); }).join(', ');
     if (same) {
-      $('outFb').innerHTML = '<span class="ok"><b>Točno ✓</b> Izlaz: ' + esc(expTxt) + '</span>';
+      $('outFb').className = 'verdict ok';
+      $('outFb').innerHTML = '<span class="badge ok">Točno ✓</span> Izlaz: ' + esc(expTxt);
     } else {
-      $('outFb').innerHTML = '<span class="err"><b>Netočno ✗</b> Očekivani izlaz je: <code>' + esc(expected.join(', ')) + '</code> (' + esc(expTxt) + ')</span>';
+      $('outFb').className = 'verdict err';
+      $('outFb').innerHTML = '<span class="badge err">Netočno ✗</span> Očekivani izlaz je: <code>' + esc(expected.join(', ')) + '</code> (' + esc(expTxt) + ')';
     }
   };
 
@@ -459,7 +520,7 @@
         '<span class="rn">r' + (idx + 1) + '</span>' +
         '<input type="text" class="re" value="' + esc(r.src) + '" aria-label="Regularni izraz r' + (idx + 1) + '" spellcheck="false">' +
         '<input type="text" class="cl" value="' + esc(r.cls) + '" aria-label="Klasa r' + (idx + 1) + '" spellcheck="false">' +
-        '<button class="btn del" type="button" title="Ukloni">✕</button>';
+        '<button class="btn sm ghost del" type="button" title="Ukloni" aria-label="Ukloni pravilo r' + (idx + 1) + '">✕</button>';
       row.querySelector('.re').oninput = function (e) { r.src = e.target.value; rebuild(); };
       row.querySelector('.cl').oninput = function (e) { r.cls = e.target.value; rebuild(); };
       row.querySelector('.del').onclick = function () { rules.splice(idx, 1); renderRules(); rebuild(); };
@@ -490,11 +551,6 @@
   $('inp').addEventListener('input', rebuild);
   $('simMode').addEventListener('change', function () { renderTransTable(); userInputs = {}; shownSteps = Math.min(2, model.trace.length); renderTrace(); });
 
-  try {
-    if (window.self !== window.top || (typeof location !== 'undefined' && location.search.indexOf('embed') >= 0)) {
-      document.documentElement.classList.add('in-embed');
-    }
-  } catch (e) {}
   ph.querySelectorAll('.ex')[0].click();
 })();
 </script>
