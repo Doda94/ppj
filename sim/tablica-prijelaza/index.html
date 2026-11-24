@@ -4,58 +4,105 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tablica prijelaza DKA (konstrukcija podskupova) — PPJ</title>
+<script src="../../assets/theme.js"></script>
 <link rel="stylesheet" href="../../assets/style.css">
 <style>
   .wrap { max-width: 1220px; }
-  .small { font-size: 13px; }
-  .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-  .popout { display: none; text-decoration: none; }
-  .in-embed .wrap { max-width: 100%; padding: 8px 10px 14px; }
-  .in-embed h1 { font-size: 17px; margin: 0; }
-  .in-embed p.lead, .in-embed .footer { display: none; }
-  .in-embed .popout { display: inline-flex; align-items: center; padding: 4px 10px; font-size: 12.5px; }
-  .in-embed .panel { padding: 10px 12px; margin: 8px 0; }
-  .in-embed h2 { font-size: 14.5px; margin-bottom: 6px; }
   @media (min-width: 660px) {
-    .in-embed .embed-grid { display: grid; grid-template-columns: 265px 1fr; gap: 10px; align-items: start; }
+    html[data-embed="1"] .embed-grid,
+    .in-embed .embed-grid {
+      display: grid;
+      grid-template-columns: 265px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+    html[data-embed="1"] .embed-grid > .panel,
     .in-embed .embed-grid > .panel { margin: 0; min-width: 0; }
+    html[data-embed="1"] .grid2,
     .in-embed .grid2 { grid-template-columns: 1fr; gap: 6px; }
+    html[data-embed="1"] #nfaGraph svg,
     .in-embed #nfaGraph svg { max-height: 130px; width: 100%; height: auto; }
+    html[data-embed="1"] table.t input.cell-in,
     .in-embed table.t input.cell-in { min-width: 54px; padding: 4px 6px; font-size: 13px; }
+    html[data-embed="1"] table.t input.cell-in.set-in,
     .in-embed table.t input.cell-in.set-in { min-width: 102px; }
-    .in-embed table.t select.cell-sel { padding: 4px 5px; font-size: 13px; }
+    html[data-embed="1"] table.t select.cell-sel,
+    .in-embed table.t select.cell-sel { padding: 4px 5px; font-size: 13px; min-width: 68px; }
+    html[data-embed="1"] .callout,
+    .in-embed .callout { padding: 8px 10px; margin: 6px 0 8px; font-size: 13px; }
   }
-  .ex { cursor: pointer; border: 1px solid transparent; font-family: var(--sans); font-size: 13px; padding: 3px 10px; }
-  .ex:hover, .ex.sel { border-color: var(--accent); }
-  .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 6px; margin-top: 8px; }
-  .gwrap svg { display: block; margin: 0 auto; }
-  svg .arr { fill: var(--muted); }
-  svg .arr.act { fill: var(--accent); }
-  svg .ring { fill: none; stroke: var(--ink); stroke-width: 1.3; }
-  svg .nid { font-size: 13px; }
-  svg .lbl { font-size: 13px; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
-  .tblwrap { overflow-x: auto; margin: 10px 0; }
+  .ex {
+    appearance: none;
+    cursor: pointer;
+    border: 1px solid var(--line-subtle);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 3px 9px;
+    margin: 0;
+    transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+  }
+  .ex:hover { border-color: var(--accent-raw); background: var(--info-bg); }
+  .ex.sel {
+    background: var(--accent-btn);
+    color: var(--accent-ink);
+    border-color: transparent;
+  }
+  .ex:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .tblwrap { margin: 10px 0; }
   table.t th, table.t td { font-size: 13.5px; }
   table.t input.cell-in {
-    width: 100%; min-width: 80px; padding: 6px 8px; border-radius: 6px;
-    border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font: 14px var(--mono);
+    width: 100%;
+    min-width: 80px;
+    padding: 6px 8px;
+    border-radius: var(--r-md);
+    border: 1.5px solid var(--line);
+    background: var(--bg-input);
+    color: var(--ink);
+    font: 14px/1.4 var(--mono);
   }
   table.t input.cell-in.set-in { min-width: 140px; }
   table.t select.cell-sel {
-    padding: 6px 8px; border-radius: 6px; border: 1.5px solid var(--line);
-    background: var(--bg); color: var(--ink); font: 14px var(--mono);
+    width: auto;
+    min-width: 76px;
+    padding: 6px 8px;
+    border-radius: var(--r-md);
+    border: 1.5px solid var(--line);
+    background: var(--bg-input);
+    color: var(--ink);
+    font: 14px/1.4 var(--mono);
   }
-  table.t .ok-cell { border-color: var(--ok) !important; background: color-mix(in srgb, var(--ok) 12%, var(--bg)) !important; }
-  table.t .err-cell { border-color: var(--err) !important; background: color-mix(in srgb, var(--err) 12%, var(--bg)) !important; }
-  .feedback { border-left: 4px solid var(--accent); background: var(--bg); padding: 9px 12px; border-radius: 6px; margin-top: 8px; font-size: 13.5px; }
-  .feedback.ok { border-left-color: var(--ok); }
-  .feedback.err { border-left-color: var(--err); }
-  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line);
-    font: 600 13px var(--sans); color: var(--muted); background: var(--bg); }
-  .badge.ok { color: var(--ok); border-color: var(--ok); }
-  .epsbox { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--bg); margin-top: 10px; }
-  @media (max-width: 520px) { .wrap { padding: 12px 10px 36px; } .btn { padding: 6px 9px; font-size: 13px; } }
+  table.t input.cell-in:focus,
+  table.t select.cell-sel:focus {
+    outline: none;
+    border-color: var(--accent-raw);
+    background: var(--bg);
+    box-shadow: var(--focus-ring);
+  }
+  table.t input.cell-in.ok-cell,
+  table.t select.cell-sel.ok-cell {
+    border-color: var(--ok);
+    background: var(--ok-bg);
+    color: var(--ink);
+  }
+  table.t input.cell-in.err-cell,
+  table.t select.cell-sel.err-cell {
+    border-color: var(--err);
+    background: var(--err-bg);
+    color: var(--ink);
+  }
+  table.t input.cell-in.ok-cell:focus,
+  table.t select.cell-sel.ok-cell:focus {
+    border-color: var(--ok);
+    background: var(--ok-bg);
+    box-shadow: var(--focus-ring);
+  }
+  table.t input.cell-in.err-cell:focus,
+  table.t select.cell-sel.err-cell:focus {
+    border-color: var(--err);
+    background: var(--err-bg);
+    box-shadow: var(--focus-ring);
+  }
+  #dfaGraph .empty { padding: 18px; text-align: center; }
 </style>
 </head>
 <body>
@@ -69,12 +116,12 @@
   <div class="embed-grid">
   <section class="panel">
     <h2>1 · Regularni izraz i polazni ε-NKA</h2>
-    <div class="row" id="presets" style="gap:6px;margin-bottom:8px"></div>
+    <div class="row" id="presets" style="gap:6px;margin-bottom:8px" role="group" aria-label="Primjeri regularnih izraza"></div>
     <div class="grid2" style="align-items:end">
       <div>
         <label for="re">Regularni izraz</label>
-        <input type="text" id="re" value="a*b" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <div id="reerr" class="err small" style="min-height:1.2em;margin-top:2px"></div>
+        <input type="text" id="re" value="a*b" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="reerr">
+        <div id="reerr" class="err small" role="alert" style="min-height:1.2em;margin-top:2px"></div>
       </div>
       <div>
         <label for="epsIn">Kalkulator ε-okruženja (upiši brojeve stanja)</label>
@@ -82,7 +129,7 @@
           <input type="text" id="epsIn" value="" placeholder="upiši stanja…" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:90px">
           <button class="btn" type="button" id="epsBtn">ε-okruženje</button>
         </div>
-        <div id="epsOut" class="small mono" style="min-height:1.2em;margin-top:2px"></div>
+        <div id="epsOut" class="small mono" aria-live="polite" style="min-height:1.2em;margin-top:2px"></div>
       </div>
     </div>
     <div class="gwrap" id="nfaGraph"></div>
@@ -91,23 +138,34 @@
 
   <section class="panel">
     <h2>2 · Popuni tablicu prijelaza DKA</h2>
-    <p class="small muted" style="margin:0 0 8px">
-      Skupove upisuj brojevima odvojenim zarezom ili razmakom. Za prazan prijelaz upiši <code>∅</code> ili <code>-</code> (ili ostavi crticu). Stanja DKA imenuj redom po otkrivanju (<code>D0</code>, <code>D1</code>, <code>D2</code>…).
-    </p>
-    <div class="row" style="gap:6px;margin-bottom:8px">
+    <div class="callout info">
+      <span class="callout-icon" aria-hidden="true">ℹ️</span>
+      <div class="callout-body small">
+        Skupove upisuj brojevima odvojenim zarezom ili razmakom. Za prazan prijelaz upiši <code>∅</code> ili <code>-</code> (ili ostavi crticu). Stanja DKA imenuj redom po otkrivanju (<code>D0</code>, <code>D1</code>, <code>D2</code>…).
+      </div>
+    </div>
+    <div class="toolbar">
       <button class="btn" type="button" id="bAddRow">+ Dodaj sljedeći redak</button>
       <button class="btn" type="button" id="bShowAllRows">Prikaži sve retke</button>
       <button class="btn primary" type="button" id="bCheckAll">Provjeri sve</button>
       <button class="btn" type="button" id="bHint">Pomoć za sljedeću ćeliju</button>
       <button class="btn" type="button" id="bSolve">Prikaži rješenje</button>
       <button class="btn" type="button" id="bReset">Isprazni</button>
+      <span class="spacer" aria-hidden="true"></span>
       <span class="badge" id="prog">0 / 0 ćelija</span>
     </div>
 
     <div class="tblwrap" id="tblWrap"></div>
-    <div class="feedback" id="fb">Počni od retka <b>D0</b>: izračunaj <code>ε-okruženje({0})</code> i upiši ga u stupac „Skup stanja ε-NKA“.</div>
+    <div class="verdict info" id="fb" role="status" aria-live="polite">Počni od retka <b>D0</b>: izračunaj <code>ε-okruženje({0})</code> i upiši ga u stupac „Skup stanja ε-NKA“.</div>
 
-    <h3 style="font-size:14px;margin:14px 0 6px">DKA izgrađen iz tvojih točnih odgovora</h3>
+    <details class="toggle boxed" id="solToggle" style="margin-top:10px">
+      <summary>Prikaži referentnu tablicu rješenja</summary>
+      <div class="toggle-body">
+        <div class="tblwrap" id="solTable" style="margin:0"></div>
+      </div>
+    </details>
+
+    <h3 style="margin:14px 0 6px">DKA izgrađen iz tvojih točnih odgovora</h3>
     <div class="gwrap" id="dfaGraph"></div>
   </section>
   </div>
@@ -165,6 +223,27 @@
     return parseInt(m[1], 10);
   }
 
+  function renderSolutionTable() {
+    if (!M) return;
+    var dfa = M.dfa;
+    var h = '<table class="t"><thead><tr><th>Stanje</th><th>Skup stanja ε-NKA</th><th>Prihv.?</th>';
+    dfa.atoms.forEach(function (a) { h += '<th>δ′(·, ' + esc(a.label) + ')</th>'; });
+    h += '</tr></thead><tbody>';
+    for (var i = 0; i < dfa.states.length; i++) {
+      var st = dfa.states[i];
+      h += '<tr><td>' + (i === 0 ? '→ ' : '') + '<b>D' + i + '</b></td>';
+      h += '<td><code>' + esc(fmt(st.set)) + '</code></td>';
+      h += '<td>' + (st.accepting ? '<span class="tag green">✓ da</span>' : '<span class="tag gray">✗ ne</span>') + '</td>';
+      for (var k = 0; k < dfa.atoms.length; k++) {
+        var to = dfa.trans[i][k];
+        h += '<td>' + (to < 0 ? '<span class="muted">∅</span>' : '<b>D' + to + '</b>') + '</td>';
+      }
+      h += '</tr>';
+    }
+    h += '</tbody></table>';
+    $('solTable').innerHTML = h;
+  }
+
   function rebuild() {
     var src = $('re').value;
     try {
@@ -179,6 +258,8 @@
       $('nfaInfo').innerHTML = 'Početno stanje ε-NKA: <b>' + th.nfa.start + '</b>, prihvatljivo stanje: <b>' + th.nfa.accept + '</b> (ukupno ' + th.nfa.n + ' stanja).';
       $('epsIn').value = '';
       $('epsOut').innerHTML = '';
+      $('solToggle').open = false;
+      renderSolutionTable();
       renderTable();
       updateFeedback('Počni od retka <b>D0</b>: izračunaj <code>ε-okruženje({' + th.nfa.start + '})</code>.', '');
     } catch (e) {
@@ -251,7 +332,7 @@
 
   function updateFeedback(html, cls) {
     var fb = $('fb');
-    fb.className = 'feedback' + (cls ? ' ' + cls : '');
+    fb.className = 'verdict ' + (cls || 'info');
     fb.innerHTML = html;
   }
 
@@ -282,7 +363,7 @@
       }
     }
     if (!partialSteps.length) {
-      $('dfaGraph').innerHTML = '<div class="small muted" style="padding:18px;text-align:center">Graf DKA pojavljivat će se kako budeš točno popunjavao tablicu.</div>';
+      $('dfaGraph').innerHTML = '<div class="small muted empty">Graf DKA pojavljivat će se kako budeš točno popunjavao tablicu.</div>';
     } else {
       var mockDfa = { atoms: dfa.atoms, states: dfa.states, trans: dfa.trans, start: 0, steps: partialSteps };
       $('dfaGraph').innerHTML = RX.renderScene(RX.dfaScene(mockDfa), { id: 'dg', label: 'Djelomični DKA' });
@@ -300,10 +381,10 @@
       h += '<tr><td>' + (i === 0 ? '→ ' : '') + '<b>D' + i + '</b></td>';
       var sk = 'set:' + i, sr = checkCell(sk);
       h += '<td><input type="text" class="cell-in set-in' + (sr ? (sr.ok ? ' ok-cell' : ' err-cell') : '') +
-        '" data-key="' + sk + '" value="' + esc(inputs[sk] || '') + '" placeholder="skup stanja" autocomplete="off" spellcheck="false"></td>';
+        '" data-key="' + sk + '" value="' + esc(inputs[sk] || '') + '" placeholder="skup stanja" aria-label="Skup stanja ε-NKA za D' + i + '" autocomplete="off" spellcheck="false"></td>';
 
       var ak = 'acc:' + i, ar = checkCell(ak);
-      h += '<td><select class="cell-sel' + (ar ? (ar.ok ? ' ok-cell' : ' err-cell') : '') + '" data-key="' + ak + '">' +
+      h += '<td><select class="cell-sel' + (ar ? (ar.ok ? ' ok-cell' : ' err-cell') : '') + '" data-key="' + ak + '" aria-label="Prihvatljivost za D' + i + '">' +
         '<option value=""' + (!inputs[ak] ? ' selected' : '') + '>—</option>' +
         '<option value="yes"' + (inputs[ak] === 'yes' ? ' selected' : '') + '>✓ da</option>' +
         '<option value="no"' + (inputs[ak] === 'no' ? ' selected' : '') + '>✗ ne</option>' +
@@ -312,7 +393,7 @@
       for (var k = 0; k < dfa.atoms.length; k++) {
         var tk = 'tr:' + i + ':' + k, tr = checkCell(tk);
         h += '<td><input type="text" class="cell-in' + (tr ? (tr.ok ? ' ok-cell' : ' err-cell') : '') +
-          '" data-key="' + tk + '" value="' + esc(inputs[tk] || '') + '" placeholder="D? / ∅" autocomplete="off" spellcheck="false"></td>';
+          '" data-key="' + tk + '" value="' + esc(inputs[tk] || '') + '" placeholder="D? / ∅" aria-label="Prijelaz iz D' + i + ' po znaku ' + esc(dfa.atoms[k].label) + '" autocomplete="off" spellcheck="false"></td>';
       }
       h += '</tr>';
     }
@@ -450,23 +531,26 @@
   PRESETS.forEach(function (p, idx) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'chip ex'; b.textContent = p.name;
+    b.setAttribute('aria-pressed', idx === 0 ? 'true' : 'false');
     b.onclick = function () {
       $('re').value = p.re;
-      Array.prototype.forEach.call(ph.querySelectorAll('.ex'), function (x, j) { x.classList.toggle('sel', j === idx); });
+      Array.prototype.forEach.call(ph.querySelectorAll('.ex'), function (x, j) {
+        var on = j === idx;
+        x.classList.toggle('sel', on);
+        x.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
       rebuild();
     };
     ph.appendChild(b);
   });
   $('re').addEventListener('input', function () {
-    Array.prototype.forEach.call(ph.querySelectorAll('.ex'), function (x) { x.classList.remove('sel'); });
+    Array.prototype.forEach.call(ph.querySelectorAll('.ex'), function (x) {
+      x.classList.remove('sel');
+      x.setAttribute('aria-pressed', 'false');
+    });
     rebuild();
   });
 
-  try {
-    if (window.self !== window.top || (typeof location !== 'undefined' && location.search.indexOf('embed') >= 0)) {
-      document.documentElement.classList.add('in-embed');
-    }
-  } catch (e) {}
   ph.querySelectorAll('.ex')[0].classList.add('sel');
   rebuild();
 })();
